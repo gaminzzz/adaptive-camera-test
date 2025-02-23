@@ -6,16 +6,17 @@ local torso = character:WaitForChild("Torso") or character:WaitForChild("UpperTo
 
 local isFirstPerson = false
 local thirdPersonOffset = CFrame.new(0, 5, -10)  -- Default offset for third-person view
+local mouse = player:GetMouse()
 
 local function updateCamera()
     if isFirstPerson then  -- First-person view
         camera.CFrame = torso.CFrame * CFrame.new(0, 1.5, 0)  -- Offset camera upwards for head perspective
         print("First-person view, camera follows head perspective")
     else  -- Third-person view
-        local mouse = game:GetService("Players").LocalPlayer:GetMouse()
-        local cameraOffset = CFrame.Angles(0, math.rad(mouse.X / 20), 0)  -- Allow some rotation based on mouse movement
-        camera.CFrame = camera.CFrame:Lerp(torso.CFrame * thirdPersonOffset * cameraOffset, 0.1)  -- Smooth transition with flexibility
-        print("Third-person view, camera follows torso with flexibility")
+        local lookVector = (torso.Position - mouse.Hit.p).unit  -- Calculate look direction
+        local desiredCFrame = CFrame.new(torso.Position + Vector3.new(0, 5, 0) - lookVector * 10, torso.Position)
+        camera.CFrame = camera.CFrame:Lerp(desiredCFrame, 0.1)  -- Smooth transition without diagonal issue
+        print("Third-person view, camera follows torso with correct alignment")
     end
 end
 
