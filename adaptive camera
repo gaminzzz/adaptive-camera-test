@@ -4,18 +4,15 @@ local camera = game.Workspace.CurrentCamera
 
 local torso = character:WaitForChild("Torso") or character:WaitForChild("UpperTorso")  -- Check for both R15 and R6 rigs
 
-local function onEmoteAnimationPlayed(animationTrack)
-    animationTrack:GetMarkerReachedSignal("EmoteEvent"):Connect(function()
-        local function updateCamera()
-            camera.CFrame = torso.CFrame
-        end
-        
-        -- Update camera for relevant events
-        animationTrack:GetMarkerReachedSignal("Loop"):Connect(updateCamera)
-        animationTrack:GetMarkerReachedSignal("End"):Connect(function()
-            camera.CFrame = game.Workspace.CurrentCamera.CFrame  -- Reset to default position if needed
-        end)
-    end)
+local function updateCamera()
+    if camera.CameraSubject == character.Humanoid then  -- Check if in third-person view
+        camera.CFrame = camera.CFrame:Lerp(torso.CFrame * CFrame.new(0, 5, -10), 0.1)  -- Smooth transition
+    else  -- First-person view
+        camera.CFrame = torso.CFrame
+    end
+    print("Camera updated!")  -- Print to console
 end
 
-character.Humanoid.Animator.AnimationPlayed:Connect(onEmoteAnimationPlayed)
+-- Continuously update the camera's position and orientation
+game:GetService("RunService").RenderStepped:Connect(updateCamera)
+-- third and first person verison
