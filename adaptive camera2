@@ -1,0 +1,13 @@
+local player = game.Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local camera = game.Workspace.CurrentCamera
+
+local torso = character:WaitForChild("Torso") or character:WaitForChild("UpperTorso")  -- Check for both R15 and R6 rigs
+
+local function updateCamera()
+    camera.CFrame = torso.CFrame
+    print("Camera updated!")  -- Print to console
+end
+
+-- Continuously update the camera's position and orientation
+game:GetService("RunService").RenderStepped:Connect(updateCamera)
