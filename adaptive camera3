@@ -4,13 +4,23 @@ local camera = game.Workspace.CurrentCamera
 
 local torso = character:WaitForChild("Torso") or character:WaitForChild("UpperTorso")  -- Check for both R15 and R6 rigs
 
+local isFirstPerson = false
+
 local function updateCamera()
-    if camera.CameraType == Enum.CameraType.Custom and camera.Focus.Position == character.Head.Position then  -- Fully zoomed in
-        camera.CFrame = torso.CFrame  -- First-person view follows torso
+    if isFirstPerson then  -- First-person view
+        camera.CFrame = torso.CFrame
         print("First-person view, camera follows torso")
     else  -- Third-person view
         camera.CFrame = camera.CFrame:Lerp(torso.CFrame * CFrame.new(0, 5, -10), 0.1)  -- Smooth transition
         print("Third-person view, camera follows torso")
+    end
+end
+
+-- Toggle between first-person and third-person view
+local function onKeyPress(input)
+    if input.KeyCode == Enum.KeyCode.J then
+        isFirstPerson = not isFirstPerson  -- Toggle the view mode
+        print("Toggled view mode: " .. (isFirstPerson and "First-person" or "Third-person"))
     end
 end
 
@@ -19,6 +29,9 @@ player.CharacterAdded:Connect(function(newCharacter)
     character = newCharacter
     torso = character:WaitForChild("Torso") or character:WaitForChild("UpperTorso")
 end)
+
+-- Connect to UserInputService to detect key presses
+game:GetService("UserInputService").InputBegan:Connect(onKeyPress)
 
 -- Continuously update the camera's position and orientation
 game:GetService("RunService").RenderStepped:Connect(updateCamera)
