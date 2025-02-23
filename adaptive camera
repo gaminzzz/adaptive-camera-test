@@ -1,0 +1,21 @@
+local player = game.Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local camera = game.Workspace.CurrentCamera
+
+local torso = character:WaitForChild("Torso") or character:WaitForChild("UpperTorso")  -- Check for both R15 and R6 rigs
+
+local function onEmoteAnimationPlayed(animationTrack)
+    animationTrack:GetMarkerReachedSignal("EmoteEvent"):Connect(function()
+        local function updateCamera()
+            camera.CFrame = torso.CFrame
+        end
+        
+        -- Update camera for relevant events
+        animationTrack:GetMarkerReachedSignal("Loop"):Connect(updateCamera)
+        animationTrack:GetMarkerReachedSignal("End"):Connect(function()
+            camera.CFrame = game.Workspace.CurrentCamera.CFrame  -- Reset to default position if needed
+        end)
+    end)
+end
+
+character.Humanoid.Animator.AnimationPlayed:Connect(onEmoteAnimationPlayed)
