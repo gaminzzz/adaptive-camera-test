@@ -2,17 +2,42 @@ local player = game.Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
 local camera = game.Workspace.CurrentCamera
 
-local torso = character:WaitForChild("Torso") or character:WaitForChild("UpperTorso")  -- Check for both R15 and R6 rigs
+local head = character:WaitForChild("Head")  -- Reference the head for both R15 and R6 rigs
+
+local isFirstPerson = false
+local thirdPersonOffset = CFrame.new(0, 5, -10)  -- Default offset for third-person view
 
 local function updateCamera()
-    if camera.CameraSubject == character.Humanoid then  -- Check if in third-person view
-        camera.CFrame = camera.CFrame:Lerp(torso.CFrame * CFrame.new(0, 5, -10), 0.1)  -- Smooth transition
-    else  -- First-person view
-        camera.CFrame = torso.CFrame
+    if isFirstPerson then  -- First-person view
+        camera.CameraType = Enum.CameraType.Scriptable
+        camera.CFrame = camera.CFrame:Lerp(head.CFrame * CFrame.new(0, 0.5, 0), 0.1)  -- Smoothly move towards head position
+        print("First-person view, camera influenced by head perspective")
+    else  -- Third-person view
+        camera.CameraType = Enum.CameraType.Custom
+        local mouse = player:GetMouse()
+        local lookVector = (head.Position - mouse.Hit.p).unit  -- Calculate look direction
+        local desiredCFrame = CFrame.new(head.Position + Vector3.new(0, 5, 0) - head.CFrame.LookVector * 10, head.Position)
+        camera.CFrame = camera.CFrame:Lerp(desiredCFrame, 0.1)  -- Smooth transition with flexibility
+        print("Third-person view, camera influenced by head")
     end
-    print("Camera updated!")  -- Print to console
 end
+
+-- Toggle between first-person and third-person view
+local function onKeyPress(input)
+    if input.KeyCode == Enum.KeyCode.J then
+        isFirstPerson = not isFirstPerson  -- Toggle the view mode
+        print("Toggled view mode: " .. (isFirstPerson and "First-person" or "Third-person"))
+    end
+end
+
+-- Connect to character added event to handle character respawns
+player.CharacterAdded:Connect(function(newCharacter)
+    character = newCharacter
+    head = character:WaitForChild("Head")
+end)
+
+-- Connect to UserInputService to detect key presses
+game:GetService("UserInputService").InputBegan:Connect(onKeyPress)
 
 -- Continuously update the camera's position and orientation
 game:GetService("RunService").RenderStepped:Connect(updateCamera)
--- third and first person verison
