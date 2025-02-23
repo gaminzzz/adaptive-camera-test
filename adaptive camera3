@@ -5,14 +5,17 @@ local camera = game.Workspace.CurrentCamera
 local torso = character:WaitForChild("Torso") or character:WaitForChild("UpperTorso")  -- Check for both R15 and R6 rigs
 
 local isFirstPerson = false
+local thirdPersonOffset = CFrame.new(0, 5, -10)  -- Default offset for third-person view
 
 local function updateCamera()
     if isFirstPerson then  -- First-person view
-        camera.CFrame = torso.CFrame
-        print("First-person view, camera follows torso")
+        camera.CFrame = torso.CFrame * CFrame.new(0, 1.5, 0)  -- Offset camera upwards for head perspective
+        print("First-person view, camera follows head perspective")
     else  -- Third-person view
-        camera.CFrame = camera.CFrame:Lerp(torso.CFrame * CFrame.new(0, 5, -10), 0.1)  -- Smooth transition
-        print("Third-person view, camera follows torso")
+        local mouse = game:GetService("Players").LocalPlayer:GetMouse()
+        local cameraOffset = CFrame.Angles(0, math.rad(mouse.X / 20), 0)  -- Allow some rotation based on mouse movement
+        camera.CFrame = camera.CFrame:Lerp(torso.CFrame * thirdPersonOffset * cameraOffset, 0.1)  -- Smooth transition with flexibility
+        print("Third-person view, camera follows torso with flexibility")
     end
 end
 
