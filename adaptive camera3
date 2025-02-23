@@ -1,1 +1,23 @@
+local player = game.Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local camera = game.Workspace.CurrentCamera
 
+local torso = character:WaitForChild("Torso") or character:WaitForChild("UpperTorso")  -- Check for both R15 and R6 rigs
+
+local function updateCamera()
+    if camera.CameraSubject == character.Humanoid then  -- Check if in third-person view
+        camera.CFrame = camera.CFrame:Lerp(torso.CFrame * CFrame.new(0, 5, -10), 0.1)  -- Smooth transition
+    else  -- First-person view
+        camera.CFrame = torso.CFrame
+    end
+    print("Camera updated!")  -- Print to console
+end
+
+-- Connect to character added event to handle character respawns
+player.CharacterAdded:Connect(function(newCharacter)
+    character = newCharacter
+    torso = character:WaitForChild("Torso") or character:WaitForChild("UpperTorso")
+end)
+
+-- Continuously update the camera's position and orientation
+game:GetService("RunService").RenderStepped:Connect(updateCamera)
