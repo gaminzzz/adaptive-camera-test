@@ -29,32 +29,39 @@ local isLockedOn = false
 local lockOnTarget = nil
 local lockOnRange = 100 -- studs
 
--- Function to lock-on and face the target
+-- Smooth third-person camera lock-on (console-style)
 local function updateCamera()
 	if isLockedOn and lockOnTarget and lockOnTarget.Character and lockOnTarget.Character:FindFirstChild("HumanoidRootPart") then
 		local targetHRP = lockOnTarget.Character.HumanoidRootPart
 		local character = LocalPlayer.Character
-		if not character or not character:FindFirstChild("Head") then return end
+		if not character or not character:FindFirstChild("HumanoidRootPart") then return end
 
-		local head = character.Head
-		local camPosition = head.Position + Vector3.new(0, 0.5, 0)
+		local playerHRP = character.HumanoidRootPart
+
+		local distanceBehind = 6
+		local heightAbove = 3
+
+		-- Calculate camera position behind and above player
+		local backOffset = -playerHRP.CFrame.LookVector * distanceBehind
+		local cameraPosition = playerHRP.Position + backOffset + Vector3.new(0, heightAbove, 0)
+
 		local lookAt = targetHRP.Position + Vector3.new(0, 2, 0)
 
-		Camera.CFrame = CFrame.new(camPosition, lookAt)
+		Camera.CFrame = CFrame.new(cameraPosition, lookAt)
 	end
 end
 
--- Bind camera rotation step (starts bound, only disabled on unlock)
+-- Always bind this; unbind only when lock ends
 RunService:BindToRenderStep("LockOnCamera", Enum.RenderPriority.Camera.Value + 1, updateCamera)
 
--- Toggle lock-on with U key
+-- Toggle with "U" key
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if gameProcessed then return end
 	if input.KeyCode == Enum.KeyCode.U then
 		isLockedOn = not isLockedOn
 
 		if isLockedOn then
-			print("[Lock-On] Toggled ON.")
+			print("[Lock-On] Toggled ON")
 
 			local rayOrigin = Camera.CFrame.Position
 			local rayDirection = Camera.CFrame.LookVector * lockOnRange
@@ -74,21 +81,21 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 					indicator.Visible = true
 					Camera.CameraType = Enum.CameraType.Scriptable
 				else
-					print("[Lock-On] No valid player found.")
+					print("[Lock-On] No valid player hit.")
 					isLockedOn = false
 					lockOnTarget = nil
 					indicator.Visible = false
 					Camera.CameraType = Enum.CameraType.Custom
 				end
 			else
-				print("[Lock-On] Nothing hit.")
+				print("[Lock-On] Nothing in sight.")
 				isLockedOn = false
 				lockOnTarget = nil
 				indicator.Visible = false
 				Camera.CameraType = Enum.CameraType.Custom
 			end
 		else
-			print("[Lock-On] Toggled OFF.")
+			print("[Lock-On] Toggled OFF")
 			lockOnTarget = nil
 			indicator.Visible = false
 			Camera.CameraType = Enum.CameraType.Custom
@@ -97,7 +104,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	end
 end)
 
--- Update UI and unlock when target lost
+-- Update screen indicator
 RunService.RenderStepped:Connect(function()
 	if isLockedOn and lockOnTarget and lockOnTarget.Character and lockOnTarget.Character:FindFirstChild("HumanoidRootPart") then
 		local hrp = lockOnTarget.Character.HumanoidRootPart
