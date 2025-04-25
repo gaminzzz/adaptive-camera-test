@@ -4,7 +4,7 @@ local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
 local LocalPlayer = Players.LocalPlayer
-LocalPlayer.CameraMode = Enum.CameraMode.Classic  -- ✅ Safe here after LocalPlayer is defined
+LocalPlayer.CameraMode = Enum.CameraMode.Classic  -- fix
 local Camera = Workspace.CurrentCamera
 
 -- Create GUI and indicator
