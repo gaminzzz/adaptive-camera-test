@@ -27,9 +27,21 @@ print("[Lock-On] Script loaded successfully.")
 
 local isLockedOn = false
 local lockOnTarget = nil
-local lockOnRange = 100 -- studs
+local lockOnRange = 100
 
--- Smooth third-person camera lock-on (console-style)
+-- Zoom values
+local cameraDistance = 6
+local minZoom = 4
+local maxZoom = 12
+
+-- Scroll wheel zoom
+UserInputService.InputChanged:Connect(function(input)
+	if isLockedOn and input.UserInputType == Enum.UserInputType.MouseWheel then
+		cameraDistance = math.clamp(cameraDistance - input.Position.Z, minZoom, maxZoom)
+	end
+end)
+
+-- Camera follow/lock function
 local function updateCamera()
 	if isLockedOn and lockOnTarget and lockOnTarget.Character and lockOnTarget.Character:FindFirstChild("HumanoidRootPart") then
 		local targetHRP = lockOnTarget.Character.HumanoidRootPart
@@ -37,24 +49,20 @@ local function updateCamera()
 		if not character or not character:FindFirstChild("HumanoidRootPart") then return end
 
 		local playerHRP = character.HumanoidRootPart
-
-		local distanceBehind = 6
 		local heightAbove = 3
 
-		-- Calculate camera position behind and above player
-		local backOffset = -playerHRP.CFrame.LookVector * distanceBehind
+		local backOffset = -playerHRP.CFrame.LookVector * cameraDistance
 		local cameraPosition = playerHRP.Position + backOffset + Vector3.new(0, heightAbove, 0)
 
 		local lookAt = targetHRP.Position + Vector3.new(0, 2, 0)
-
 		Camera.CFrame = CFrame.new(cameraPosition, lookAt)
 	end
 end
 
--- Always bind this; unbind only when lock ends
+-- Always bound until unlocked
 RunService:BindToRenderStep("LockOnCamera", Enum.RenderPriority.Camera.Value + 1, updateCamera)
 
--- Toggle with "U" key
+-- Lock-on toggle
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if gameProcessed then return end
 	if input.KeyCode == Enum.KeyCode.U then
@@ -104,7 +112,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	end
 end)
 
--- Update screen indicator
+-- Indicator update and unlock logic
 RunService.RenderStepped:Connect(function()
 	if isLockedOn and lockOnTarget and lockOnTarget.Character and lockOnTarget.Character:FindFirstChild("HumanoidRootPart") then
 		local hrp = lockOnTarget.Character.HumanoidRootPart
