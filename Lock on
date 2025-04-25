@@ -29,7 +29,25 @@ local isLockedOn = false
 local lockOnTarget = nil
 local lockOnRange = 100 -- studs
 
--- Toggle with "U"
+-- Function to lock-on and face the target
+local function updateCamera()
+	if isLockedOn and lockOnTarget and lockOnTarget.Character and lockOnTarget.Character:FindFirstChild("HumanoidRootPart") then
+		local targetHRP = lockOnTarget.Character.HumanoidRootPart
+		local character = LocalPlayer.Character
+		if not character or not character:FindFirstChild("Head") then return end
+
+		local head = character.Head
+		local camPosition = head.Position + Vector3.new(0, 0.5, 0)
+		local lookAt = targetHRP.Position + Vector3.new(0, 2, 0)
+
+		Camera.CFrame = CFrame.new(camPosition, lookAt)
+	end
+end
+
+-- Bind camera rotation step (starts bound, only disabled on unlock)
+RunService:BindToRenderStep("LockOnCamera", Enum.RenderPriority.Camera.Value + 1, updateCamera)
+
+-- Toggle lock-on with U key
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if gameProcessed then return end
 	if input.KeyCode == Enum.KeyCode.U then
@@ -56,14 +74,14 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 					indicator.Visible = true
 					Camera.CameraType = Enum.CameraType.Scriptable
 				else
-					print("[Lock-On] No valid player found at crosshair.")
+					print("[Lock-On] No valid player found.")
 					isLockedOn = false
 					lockOnTarget = nil
 					indicator.Visible = false
 					Camera.CameraType = Enum.CameraType.Custom
 				end
 			else
-				print("[Lock-On] Nothing hit by raycast.")
+				print("[Lock-On] Nothing hit.")
 				isLockedOn = false
 				lockOnTarget = nil
 				indicator.Visible = false
@@ -74,11 +92,12 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 			lockOnTarget = nil
 			indicator.Visible = false
 			Camera.CameraType = Enum.CameraType.Custom
+			RunService:UnbindFromRenderStep("LockOnCamera")
 		end
 	end
 end)
 
--- Update UI indicator
+-- Update UI and unlock when target lost
 RunService.RenderStepped:Connect(function()
 	if isLockedOn and lockOnTarget and lockOnTarget.Character and lockOnTarget.Character:FindFirstChild("HumanoidRootPart") then
 		local hrp = lockOnTarget.Character.HumanoidRootPart
@@ -92,29 +111,12 @@ RunService.RenderStepped:Connect(function()
 		end
 	else
 		if isLockedOn then
-			print("[Lock-On] Lost target. Unlocking.")
+			print("[Lock-On] Target lost. Unlocking.")
 			isLockedOn = false
 			lockOnTarget = nil
 			indicator.Visible = false
 			Camera.CameraType = Enum.CameraType.Custom
+			RunService:UnbindFromRenderStep("LockOnCamera")
 		end
-	end
-end)
-
--- Camera: stay at player, rotate toward target
-RunService:BindToRenderStep("LockOnCamera", Enum.RenderPriority.Camera.Value + 1, function()
-	if isLockedOn and lockOnTarget and lockOnTarget.Character and lockOnTarget.Character:FindFirstChild("HumanoidRootPart") then
-		local targetHRP = lockOnTarget.Character.HumanoidRootPart
-		local character = LocalPlayer.Character
-		if not character or not character:FindFirstChild("Head") then return end
-
-		local head = character.Head
-		local camPosition = head.Position + Vector3.new(0, 0.5, 0)
-		local lookAt = targetHRP.Position + Vector3.new(0, 2, 0)
-
-		Camera.CFrame = CFrame.new(camPosition, lookAt)
-	else
-		RunService:UnbindFromRenderStep("LockOnCamera")
-		Camera.CameraType = Enum.CameraType.Custom
 	end
 end)
