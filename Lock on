@@ -1,87 +1,103 @@
 local Players = game:GetService("Players")
-LocalPlayer.CameraMode = Enum.CameraMode.Classic
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
+
 local LocalPlayer = Players.LocalPlayer
-local Camera = workspace.CurrentCamera
-local Mouse = LocalPlayer:GetMouse()
+local Camera = Workspace.CurrentCamera
 
-local gui = script.Parent
-local indicator = gui:WaitForChild("LockOnIndicator")
+-- Create GUI and indicator
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "LockOnGui"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
-local lockOnTarget = nil
-local lockOnRange = 100  -- studs
+local indicator = Instance.new("Frame")
+indicator.Name = "LockOnIndicator"
+indicator.Size = UDim2.new(0, 10, 0, 10)
+indicator.BackgroundColor3 = Color3.new(1, 0, 0)
+indicator.BorderSizePixel = 0
+indicator.Visible = false
+indicator.AnchorPoint = Vector2.new(0.5, 0.5)
+indicator.Position = UDim2.new(0.5, 0, 0.5, 0)
+indicator.Parent = screenGui
+
 local isLockedOn = false
+local lockOnTarget = nil
+local lockOnRange = 100 -- Max raycast distance
 
--- Toggles lock on when you press "U"
+-- Toggle with "U"
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if gameProcessed then return end
 	if input.KeyCode == Enum.KeyCode.U then
 		isLockedOn = not isLockedOn
-		if not isLockedOn then
+
+		if isLockedOn then
+			-- Use raycast from center of screen to find a target
+			local rayOrigin = Camera.CFrame.Position
+			local rayDirection = Camera.CFrame.LookVector * lockOnRange
+
+			local raycastParams = RaycastParams.new()
+			raycastParams.FilterDescendantsInstances = {LocalPlayer.Character}
+			raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+
+			local result = Workspace:Raycast(rayOrigin, rayDirection, raycastParams)
+
+			if result and result.Instance then
+				local hitPart = result.Instance
+				local targetModel = hitPart:FindFirstAncestorOfClass("Model")
+				if targetModel and Players:GetPlayerFromCharacter(targetModel) then
+					lockOnTarget = Players:GetPlayerFromCharacter(targetModel)
+					indicator.Visible = true
+				else
+					isLockedOn = false
+					lockOnTarget = nil
+					indicator.Visible = false
+				end
+			else
+				isLockedOn = false
+				lockOnTarget = nil
+				indicator.Visible = false
+			end
+		else
+			-- Turn off
 			lockOnTarget = nil
 			indicator.Visible = false
 		end
 	end
 end)
 
--- Function to get closest player to center of screen
-local function getPlayerInView()
-	local closestPlayer = nil
-	local closestDistance = math.huge
-
-	for _, player in pairs(Players:GetPlayers()) do
-		if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-			local hrp = player.Character.HumanoidRootPart
-			local screenPoint, onScreen = Camera:WorldToViewportPoint(hrp.Position)
-
-			if onScreen then
-				local dx = screenPoint.X - Camera.ViewportSize.X / 2
-				local dy = screenPoint.Y - Camera.ViewportSize.Y / 2
-				local distance = math.sqrt(dx * dx + dy * dy)
-
-				if distance < 100 and (hrp.Position - Camera.CFrame.Position).Magnitude < lockOnRange then
-					if distance < closestDistance then
-						closestDistance = distance
-						closestPlayer = player
-					end
-				end
-			end
-		end
-	end
-
-	return closestPlayer
-end
-
+-- Track target and update camera + indicator
 RunService.RenderStepped:Connect(function()
-	if isLockedOn then
-		if not lockOnTarget or not lockOnTarget.Character or not lockOnTarget.Character:FindFirstChild("HumanoidRootPart") then
-			lockOnTarget = getPlayerInView()
-		end
+	if isLockedOn and lockOnTarget and lockOnTarget.Character and lockOnTarget.Character:FindFirstChild("HumanoidRootPart") then
+		local hrp = lockOnTarget.Character.HumanoidRootPart
+		local screenPos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
 
-		if lockOnTarget and lockOnTarget.Character and lockOnTarget.Character:FindFirstChild("HumanoidRootPart") then
-			local pos, onScreen = Camera:WorldToViewportPoint(lockOnTarget.Character.HumanoidRootPart.Position)
-			if onScreen then
-				indicator.Position = UDim2.new(0, pos.X - 5, 0, pos.Y - 5)
-				indicator.Visible = true
-			else
-				indicator.Visible = false
-			end
+		if onScreen then
+			indicator.Position = UDim2.new(0, screenPos.X, 0, screenPos.Y)
+			indicator.Visible = true
 		else
+			indicator.Visible = false
+		end
+	else
+		if isLockedOn then
+			-- Lost target? Turn off
+			isLockedOn = false
+			lockOnTarget = nil
 			indicator.Visible = false
 		end
 	end
 end)
+
+-- Lock-on camera behavior
 RunService:BindToRenderStep("LockOnCamera", Enum.RenderPriority.Camera.Value + 1, function()
 	if isLockedOn and lockOnTarget and lockOnTarget.Character and lockOnTarget.Character:FindFirstChild("HumanoidRootPart") then
 		local targetHRP = lockOnTarget.Character.HumanoidRootPart
-		local cam = workspace.CurrentCamera
-		local distance = 10  -- camera distance from target
-		local offset = Vector3.new(0, 5, distance)
+		local camDistance = 10
+		local camHeight = 3
 
-		-- Calculate new camera position
-		local camPos = targetHRP.Position + (targetHRP.CFrame.LookVector * -distance) + Vector3.new(0, 3, 0)
-		cam.CFrame = CFrame.new(camPos, targetHRP.Position + Vector3.new(0, 2, 0))
+		local camPosition = targetHRP.Position - (targetHRP.CFrame.LookVector * camDistance) + Vector3.new(0, camHeight, 0)
+		Camera.CFrame = CFrame.new(camPosition, targetHRP.Position + Vector3.new(0, 2, 0))
 	elseif not isLockedOn then
 		RunService:UnbindFromRenderStep("LockOnCamera")
 	end
