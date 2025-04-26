@@ -38,6 +38,7 @@ local maxZoom = 12
 local predictionAmount = 0
 local lastTargetVelocity = Vector3.zero
 local lastUpdateTime = tick()
+local smoothCFrame = Camera.CFrame
 
 -- Update predictionAmount from chat
 LocalPlayer.Chatted:Connect(function(msg)
@@ -55,7 +56,7 @@ UserInputService.InputChanged:Connect(function(input)
 	end
 end)
 
--- Camera update function with velocity + acceleration prediction
+-- Camera update function with smooth prediction
 local function updateCamera()
 	if isLockedOn and lockOnTarget and lockOnTarget.Character and lockOnTarget.Character:FindFirstChild("HumanoidRootPart") then
 		local targetHRP = lockOnTarget.Character.HumanoidRootPart
@@ -68,17 +69,23 @@ local function updateCamera()
 		local backOffset = -playerHRP.CFrame.LookVector * cameraDistance
 		local cameraPosition = playerHRP.Position + backOffset + Vector3.new(0, heightAbove, 0)
 
+		-- Timing
 		local now = tick()
 		local deltaTime = now - lastUpdateTime
 		lastUpdateTime = now
 
+		-- Velocity & Acceleration
 		local velocity = targetHRP.Velocity
 		local acceleration = (velocity - lastTargetVelocity) / math.max(deltaTime, 0.0001)
 		lastTargetVelocity = velocity
 
+		-- Clamp prediction for close range
+		local distanceToTarget = (playerHRP.Position - targetHRP.Position).Magnitude
+		local clampedPrediction = math.clamp(predictionAmount, 0, distanceToTarget * 0.8)
+
 		local predictionVector
 		if velocity.Magnitude > 1 then
-			predictionVector = velocity * predictionAmount + 0.5 * acceleration * (predictionAmount ^ 2)
+			predictionVector = velocity.Unit * clampedPrediction + 0.5 * acceleration * math.clamp(clampedPrediction, 0, 5)
 		else
 			predictionVector = Vector3.zero
 		end
@@ -86,7 +93,10 @@ local function updateCamera()
 		local predictedPosition = targetHRP.Position + predictionVector
 		local lookAt = predictedPosition + Vector3.new(0, 2, 0)
 
-		Camera.CFrame = CFrame.new(cameraPosition, lookAt)
+		-- Smooth camera
+		local targetCFrame = CFrame.new(cameraPosition, lookAt)
+		smoothCFrame = smoothCFrame:Lerp(targetCFrame, 0.15)
+		Camera.CFrame = smoothCFrame
 	end
 end
 
