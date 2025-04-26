@@ -52,36 +52,30 @@ UserInputService.InputChanged:Connect(function(input)
 	end
 end)
 
--- ULTRA-FAST HARD LOCK CAMERA SYSTEM
+--  REPLACED: ULTRA-HARD LOCKED updateCamera
 local function updateCamera()
-	if isLockedOn and lockOnTarget and lockOnTarget.Character and lockOnTarget.Character:FindFirstChild("HumanoidRootPart") then
-		local targetHRP = lockOnTarget.Character.HumanoidRootPart
-		local character = LocalPlayer.Character
-		if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+	if not (isLockedOn and lockOnTarget) then return end
+	local targetChar = lockOnTarget.Character
+	local myChar = LocalPlayer.Character
+	if not (targetChar and myChar) then return end
 
-		local playerHRP = character.HumanoidRootPart
-		local heightAbove = 3
+	local targetHRP = targetChar:FindFirstChild("HumanoidRootPart")
+	local myHRP = myChar:FindFirstChild("HumanoidRootPart")
+	if not (targetHRP and myHRP) then return end
 
-		local backOffset = -playerHRP.CFrame.LookVector * cameraDistance
-		local cameraPosition = playerHRP.Position + backOffset + Vector3.new(0, heightAbove, 0)
+	local velocity = targetHRP.Velocity
+	local distance = (myHRP.Position - targetHRP.Position).Magnitude
+	local falloff = math.clamp(distance / 100, 0, 1)
+	local pred = predictionAmount * falloff
 
-		local velocity = targetHRP.Velocity
-		local distanceToTarget = (playerHRP.Position - targetHRP.Position).Magnitude
+	local prediction = velocity.Magnitude > 1 and (velocity.Unit * pred) or Vector3.zero
+	local lookTarget = targetHRP.Position + prediction + Vector3.new(0, 2, 0)
 
-		local maxEffectiveDistance = 100
-		local falloff = math.clamp(distanceToTarget / maxEffectiveDistance, 0, 1)
-		local scaledPrediction = predictionAmount * falloff
+	local heightAbove = 3
+	local backOffset = -myHRP.CFrame.LookVector * cameraDistance
+	local cameraPos = myHRP.Position + backOffset + Vector3.new(0, heightAbove, 0)
 
-		local predictionVector = Vector3.zero
-		if velocity.Magnitude > 1 then
-			predictionVector = velocity.Unit * scaledPrediction
-		end
-
-		local predictedPosition = targetHRP.Position + predictionVector
-		local lookAt = predictedPosition + Vector3.new(0, 2, 0)
-
-		Camera.CFrame = CFrame.new(cameraPosition, lookAt)
-	end
+	Camera.CFrame = CFrame.new(cameraPos, lookTarget)
 end
 
 -- Lock-on detection
@@ -114,7 +108,7 @@ local function enableLockOn()
 	end
 end
 
--- 🔁 Toggle Lock-On with **H**
+--  Toggle Lock-On with **H**
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if gameProcessed then return end
 	if input.KeyCode == Enum.KeyCode.H then
