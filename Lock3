@@ -53,7 +53,7 @@ UserInputService.InputChanged:Connect(function(input)
 	end
 end)
 
--- 🚀 Hard Lock-On Camera (No smoothing, direct frame-based aiming)
+--  Hard Lock-On Camera (No smoothing, direct frame-based aiming)
 local function updateCamera()
 	if isLockedOn and lockOnTarget and lockOnTarget.Character and lockOnTarget.Character:FindFirstChild("HumanoidRootPart") then
 		local targetHRP = lockOnTarget.Character.HumanoidRootPart
