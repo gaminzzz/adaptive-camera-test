@@ -34,13 +34,11 @@ local cameraDistance = 6
 local minZoom = 4
 local maxZoom = 12
 
--- Prediction value (in studs)
+-- Prediction
 local predictionAmount = 0
-local lastTargetVelocity = Vector3.zero
-local lastUpdateTime = tick()
 local smoothCFrame = Camera.CFrame
 
--- Update predictionAmount from chat
+-- Chat command for prediction
 LocalPlayer.Chatted:Connect(function(msg)
 	local num = tonumber(msg)
 	if num then
@@ -49,14 +47,14 @@ LocalPlayer.Chatted:Connect(function(msg)
 	end
 end)
 
--- Scroll wheel zoom
+-- Zoom with scroll
 UserInputService.InputChanged:Connect(function(input)
 	if isLockedOn and input.UserInputType == Enum.UserInputType.MouseWheel then
 		cameraDistance = math.clamp(cameraDistance - input.Position.Z, minZoom, maxZoom)
 	end
 end)
 
--- Camera update function with smooth prediction
+-- 🔁 Updated camera function using velocity-based prediction & faster lerp
 local function updateCamera()
 	if isLockedOn and lockOnTarget and lockOnTarget.Character and lockOnTarget.Character:FindFirstChild("HumanoidRootPart") then
 		local targetHRP = lockOnTarget.Character.HumanoidRootPart
@@ -69,38 +67,26 @@ local function updateCamera()
 		local backOffset = -playerHRP.CFrame.LookVector * cameraDistance
 		local cameraPosition = playerHRP.Position + backOffset + Vector3.new(0, heightAbove, 0)
 
-		-- Timing
-		local now = tick()
-		local deltaTime = now - lastUpdateTime
-		lastUpdateTime = now
-
-		-- Velocity & Acceleration
+		-- Prediction
 		local velocity = targetHRP.Velocity
-		local acceleration = (velocity - lastTargetVelocity) / math.max(deltaTime, 0.0001)
-		lastTargetVelocity = velocity
-
-		-- Clamp prediction for close range
 		local distanceToTarget = (playerHRP.Position - targetHRP.Position).Magnitude
 		local clampedPrediction = math.clamp(predictionAmount, 0, distanceToTarget * 0.8)
 
-		local predictionVector
+		local predictionVector = Vector3.zero
 		if velocity.Magnitude > 1 then
-			predictionVector = velocity.Unit * clampedPrediction + 0.5 * acceleration * math.clamp(clampedPrediction, 0, 5)
-		else
-			predictionVector = Vector3.zero
+			predictionVector = velocity.Unit * clampedPrediction
 		end
 
 		local predictedPosition = targetHRP.Position + predictionVector
 		local lookAt = predictedPosition + Vector3.new(0, 2, 0)
 
-		-- Smooth camera
 		local targetCFrame = CFrame.new(cameraPosition, lookAt)
-		smoothCFrame = smoothCFrame:Lerp(targetCFrame, 0.15)
+		smoothCFrame = smoothCFrame:Lerp(targetCFrame, 0.3) -- Faster smoothing
 		Camera.CFrame = smoothCFrame
 	end
 end
 
--- Function to enable lock-on mode
+-- Raycast lock-on
 local function enableLockOn()
 	local rayOrigin = Camera.CFrame.Position
 	local rayDirection = Camera.CFrame.LookVector * lockOnRange
@@ -130,7 +116,7 @@ local function enableLockOn()
 	end
 end
 
--- Key toggle (J key)
+-- J Key toggle
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if gameProcessed then return end
 	if input.KeyCode == Enum.KeyCode.J then
@@ -148,7 +134,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	end
 end)
 
--- Update target indicator and unlock if lost
+-- Lock-on indicator + cleanup
 RunService.RenderStepped:Connect(function()
 	if isLockedOn and lockOnTarget and lockOnTarget.Character and lockOnTarget.Character:FindFirstChild("HumanoidRootPart") then
 		local hrp = lockOnTarget.Character.HumanoidRootPart
