@@ -36,6 +36,8 @@ local maxZoom = 12
 
 -- Prediction value (in studs)
 local predictionAmount = 0
+local lastTargetVelocity = Vector3.zero
+local lastUpdateTime = tick()
 
 -- Update predictionAmount from chat
 LocalPlayer.Chatted:Connect(function(msg)
@@ -53,7 +55,7 @@ UserInputService.InputChanged:Connect(function(input)
 	end
 end)
 
--- Camera update function with prediction
+-- Camera update function with velocity + acceleration prediction
 local function updateCamera()
 	if isLockedOn and lockOnTarget and lockOnTarget.Character and lockOnTarget.Character:FindFirstChild("HumanoidRootPart") then
 		local targetHRP = lockOnTarget.Character.HumanoidRootPart
@@ -66,11 +68,24 @@ local function updateCamera()
 		local backOffset = -playerHRP.CFrame.LookVector * cameraDistance
 		local cameraPosition = playerHRP.Position + backOffset + Vector3.new(0, heightAbove, 0)
 
-		-- Predict movement
-		local targetVelocity = targetHRP.Velocity
-		local predictedPosition = targetHRP.Position + (targetVelocity.Unit * math.min(targetVelocity.Magnitude, predictionAmount))
+		local now = tick()
+		local deltaTime = now - lastUpdateTime
+		lastUpdateTime = now
 
+		local velocity = targetHRP.Velocity
+		local acceleration = (velocity - lastTargetVelocity) / math.max(deltaTime, 0.0001)
+		lastTargetVelocity = velocity
+
+		local predictionVector
+		if velocity.Magnitude > 1 then
+			predictionVector = velocity * predictionAmount + 0.5 * acceleration * (predictionAmount ^ 2)
+		else
+			predictionVector = Vector3.zero
+		end
+
+		local predictedPosition = targetHRP.Position + predictionVector
 		local lookAt = predictedPosition + Vector3.new(0, 2, 0)
+
 		Camera.CFrame = CFrame.new(cameraPosition, lookAt)
 	end
 end
@@ -105,7 +120,7 @@ local function enableLockOn()
 	end
 end
 
--- Key toggle (J instead of U)
+-- Key toggle (J key)
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if gameProcessed then return end
 	if input.KeyCode == Enum.KeyCode.J then
