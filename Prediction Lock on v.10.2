@@ -1,0 +1,159 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
+
+local LocalPlayer = Players.LocalPlayer
+LocalPlayer.CameraMode = Enum.CameraMode.Classic
+local Camera = Workspace.CurrentCamera
+
+-- Create GUI and indicator
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "LockOnGui"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+local indicator = Instance.new("Frame")
+indicator.Name = "LockOnIndicator"
+indicator.Size = UDim2.new(0, 10, 0, 10)
+indicator.BackgroundColor3 = Color3.new(1, 0, 0)
+indicator.BorderSizePixel = 0
+indicator.Visible = false
+indicator.AnchorPoint = Vector2.new(0.5, 0.5)
+indicator.Position = UDim2.new(0.5, 0, 0.5, 0)
+indicator.Parent = screenGui
+
+print("[Lock-On] Script loaded successfully.")
+
+local isLockedOn = false
+local lockOnTarget = nil
+local lockOnRange = 100
+
+-- Zoom values
+local cameraDistance = 6
+local minZoom = 4
+local maxZoom = 12
+
+-- Prediction
+local predictionAmount = 0
+
+-- Chat command for prediction
+LocalPlayer.Chatted:Connect(function(msg)
+	local num = tonumber(msg)
+	if num then
+		predictionAmount = num
+		print("[Lock-On] Prediction set to", predictionAmount, "studs")
+	end
+end)
+
+-- Scroll wheel zoom
+UserInputService.InputChanged:Connect(function(input)
+	if isLockedOn and input.UserInputType == Enum.UserInputType.MouseWheel then
+		cameraDistance = math.clamp(cameraDistance - input.Position.Z, minZoom, maxZoom)
+	end
+end)
+
+-- Hard Lock-On Camera (with velocity-based prediction scaling)
+local function updateCamera()
+	if isLockedOn and lockOnTarget and lockOnTarget.Character and lockOnTarget.Character:FindFirstChild("HumanoidRootPart") then
+		local targetHRP = lockOnTarget.Character.HumanoidRootPart
+		local character = LocalPlayer.Character
+		if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+
+		local playerHRP = character.HumanoidRootPart
+		local heightAbove = 3
+
+		local backOffset = -playerHRP.CFrame.LookVector * cameraDistance
+		local cameraPosition = playerHRP.Position + backOffset + Vector3.new(0, heightAbove, 0)
+
+		local velocity = targetHRP.Velocity
+		local distanceToTarget = (playerHRP.Position - targetHRP.Position).Magnitude
+		local maxPrediction = math.clamp(predictionAmount, 0, distanceToTarget * 0.8)
+
+		local predictionVector = Vector3.zero
+
+		if predictionAmount > 0 and velocity.Magnitude > 1 then
+			local maxSpeed = 100
+			local speedRatio = math.clamp(velocity.Magnitude / maxSpeed, 0, 1)
+			local scaledPrediction = maxPrediction * speedRatio
+			predictionVector = velocity.Unit * scaledPrediction
+		end
+
+		local predictedPosition = targetHRP.Position + predictionVector
+		local lookAt = predictedPosition + Vector3.new(0, 2, 0)
+
+		Camera.CFrame = CFrame.new(cameraPosition, lookAt)
+	end
+end
+
+-- Raycast to lock on
+local function enableLockOn()
+	local rayOrigin = Camera.CFrame.Position
+	local rayDirection = Camera.CFrame.LookVector * lockOnRange
+
+	local raycastParams = RaycastParams.new()
+	raycastParams.FilterDescendantsInstances = {LocalPlayer.Character}
+	raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+
+	local result = Workspace:Raycast(rayOrigin, rayDirection, raycastParams)
+
+	if result and result.Instance then
+		local hitPart = result.Instance
+		local targetModel = hitPart:FindFirstAncestorOfClass("Model")
+		if targetModel and Players:GetPlayerFromCharacter(targetModel) then
+			lockOnTarget = Players:GetPlayerFromCharacter(targetModel)
+			print("[Lock-On] Locked onto:", lockOnTarget.Name)
+			indicator.Visible = true
+			Camera.CameraType = Enum.CameraType.Scriptable
+			RunService:BindToRenderStep("LockOnCamera", Enum.RenderPriority.Camera.Value + 1, updateCamera)
+		else
+			print("[Lock-On] No valid player.")
+			isLockedOn = false
+		end
+	else
+		print("[Lock-On] Nothing hit.")
+		isLockedOn = false
+	end
+end
+
+-- Toggle with J
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed then return end
+	if input.KeyCode == Enum.KeyCode.J then
+		isLockedOn = not isLockedOn
+		if isLockedOn then
+			print("[Lock-On] Toggled ON")
+			enableLockOn()
+		else
+			print("[Lock-On] Toggled OFF")
+			lockOnTarget = nil
+			indicator.Visible = false
+			Camera.CameraType = Enum.CameraType.Custom
+			RunService:UnbindFromRenderStep("LockOnCamera")
+		end
+	end
+end)
+
+-- UI Tracking and loss cleanup
+RunService.RenderStepped:Connect(function()
+	if isLockedOn and lockOnTarget and lockOnTarget.Character and lockOnTarget.Character:FindFirstChild("HumanoidRootPart") then
+		local hrp = lockOnTarget.Character.HumanoidRootPart
+		local screenPos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+
+		if onScreen then
+			indicator.Position = UDim2.new(0, screenPos.X, 0, screenPos.Y)
+			indicator.Visible = true
+		else
+			indicator.Visible = false
+		end
+	else
+		if isLockedOn then
+			print("[Lock-On] Target lost. Unlocking.")
+			isLockedOn = false
+			lockOnTarget = nil
+			indicator.Visible = false
+			Camera.CameraType = Enum.CameraType.Custom
+			RunService:UnbindFromRenderStep("LockOnCamera")
+		end
+	end
+end)
