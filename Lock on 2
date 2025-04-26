@@ -4,16 +4,47 @@ local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
 local LocalPlayer = Players.LocalPlayer
+LocalPlayer.CameraMode = Enum.CameraMode.Classic
 local Camera = Workspace.CurrentCamera
 
-local lockOnTarget = nil
+-- Create GUI and indicator
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "LockOnGui"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+local indicator = Instance.new("Frame")
+indicator.Name = "LockOnIndicator"
+indicator.Size = UDim2.new(0, 10, 0, 10)
+indicator.BackgroundColor3 = Color3.new(1, 0, 0)
+indicator.BorderSizePixel = 0
+indicator.Visible = false
+indicator.AnchorPoint = Vector2.new(0.5, 0.5)
+indicator.Position = UDim2.new(0.5, 0, 0.5, 0)
+indicator.Parent = screenGui
+
+print("[Lock-On] Script loaded successfully.")
+
 local isLockedOn = false
-local cameraDistance = 10
-local minZoom = 5
-local maxZoom = 20
+local lockOnTarget = nil
 local lockOnRange = 100
 
-local indicator = script.Parent:WaitForChild("LockOnIndicator")
+-- Zoom values
+local cameraDistance = 6
+local minZoom = 4
+local maxZoom = 12
+
+-- Prediction value (in studs)
+local predictionAmount = 0
+
+-- Update predictionAmount from chat
+LocalPlayer.Chatted:Connect(function(msg)
+	local num = tonumber(msg)
+	if num then
+		predictionAmount = num
+		print("[Lock-On] Prediction set to", predictionAmount, "studs")
+	end
+end)
 
 -- Scroll wheel zoom
 UserInputService.InputChanged:Connect(function(input)
@@ -22,7 +53,7 @@ UserInputService.InputChanged:Connect(function(input)
 	end
 end)
 
--- Camera update function
+-- Camera update function with prediction
 local function updateCamera()
 	if isLockedOn and lockOnTarget and lockOnTarget.Character and lockOnTarget.Character:FindFirstChild("HumanoidRootPart") then
 		local targetHRP = lockOnTarget.Character.HumanoidRootPart
@@ -30,15 +61,16 @@ local function updateCamera()
 		if not character or not character:FindFirstChild("HumanoidRootPart") then return end
 
 		local playerHRP = character.HumanoidRootPart
+		local heightAbove = 3
 
-		-- Custom third-person lock-on camera position: above and over the shoulder
-		local heightOffset = Vector3.new(0, 5, 0) -- higher above player
-		local shoulderOffset = playerHRP.CFrame.RightVector * 2 -- slight right shoulder view
-		local backOffset = -playerHRP.CFrame.LookVector * cameraDistance -- back based on zoom
+		local backOffset = -playerHRP.CFrame.LookVector * cameraDistance
+		local cameraPosition = playerHRP.Position + backOffset + Vector3.new(0, heightAbove, 0)
 
-		local cameraPosition = playerHRP.Position + backOffset + heightOffset + shoulderOffset
-		local lookAt = targetHRP.Position + Vector3.new(0, 2, 0)
+		-- Predict movement
+		local targetVelocity = targetHRP.Velocity
+		local predictedPosition = targetHRP.Position + (targetVelocity.Unit * math.min(targetVelocity.Magnitude, predictionAmount))
 
+		local lookAt = predictedPosition + Vector3.new(0, 2, 0)
 		Camera.CFrame = CFrame.new(cameraPosition, lookAt)
 	end
 end
@@ -73,10 +105,10 @@ local function enableLockOn()
 	end
 end
 
--- Key toggle
+-- Key toggle (J instead of U)
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if gameProcessed then return end
-	if input.KeyCode == Enum.KeyCode.U then
+	if input.KeyCode == Enum.KeyCode.J then
 		isLockedOn = not isLockedOn
 		if isLockedOn then
 			print("[Lock-On] Toggled ON")
