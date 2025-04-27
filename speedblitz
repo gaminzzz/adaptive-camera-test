@@ -7,11 +7,11 @@ local character = player.Character or player.CharacterAdded:Wait()
 local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
 local humanoid = character:WaitForChild("Humanoid")
 
--- CONFIG
-local moveDuration = 0.4
-local sideSpeed = 25
-local forwardBoost = 15
-local teleportOffset = 3
+-- CONFIG (adjusted for less intense movement)
+local moveDuration = 0.3
+local sideSpeed = 50         -- Reduced from 160
+local forwardBoost = 5       -- Reduced from 15
+local teleportOffset = 1.5   -- Reduced from 3
 
 -- ANIMATIONS
 local leftAnim = Instance.new("Animation")
@@ -28,12 +28,12 @@ local currentAnimTrack
 local function dash(direction)
 	if not character or not humanoidRootPart then return end
 
-	-- Stop current animation if one is playing
+	-- Stop current animation if playing
 	if currentAnimTrack then
 		currentAnimTrack:Stop()
 	end
 
-	-- Play new animation
+	-- Play correct animation
 	local animToPlay = direction == -1 and leftAnim or rightAnim
 	currentAnimTrack = humanoid:LoadAnimation(animToPlay)
 	currentAnimTrack:Play()
@@ -51,18 +51,20 @@ local function dash(direction)
 			return
 		end
 
+		-- Mild sideways velocity
 		local moveVector = humanoidRootPart.CFrame.RightVector * direction * sideSpeed
 		humanoidRootPart.Velocity = Vector3.new(moveVector.X, humanoidRootPart.Velocity.Y, moveVector.Z)
 
+		-- Smaller teleport at midpoint
 		if not hasTeleported and elapsed >= moveDuration / 2 then
 			hasTeleported = true
-			humanoidRootPart.CFrame = humanoidRootPart.CFrame + humanoidRootPart.CFrame.RightVector * direction * teleportOffset
-			humanoidRootPart.Velocity = humanoidRootPart.Velocity + humanoidRootPart.CFrame.LookVector * forwardBoost
+			humanoidRootPart.CFrame += humanoidRootPart.CFrame.RightVector * direction * teleportOffset
+			humanoidRootPart.Velocity += humanoidRootPart.CFrame.LookVector * forwardBoost
 		end
 	end)
 end
 
--- START DASH LOOP
+-- TOGGLE LOGIC
 local function startTogglingDashes()
 	dashCoroutine = coroutine.create(function()
 		while toggleDash do
@@ -77,7 +79,6 @@ local function startTogglingDashes()
 	coroutine.resume(dashCoroutine)
 end
 
--- STOP DASH LOOP
 local function stopTogglingDashes()
 	toggleDash = false
 	if dashCoroutine and coroutine.status(dashCoroutine) == "suspended" then
@@ -89,7 +90,7 @@ local function stopTogglingDashes()
 	end
 end
 
--- INPUT LISTENER
+-- INPUT
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if gameProcessed then return end
 
