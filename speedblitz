@@ -5,16 +5,38 @@ local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
 local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+local humanoid = character:WaitForChild("Humanoid")
 
 -- CONFIG
-local moveDuration = 0.4  -- total time in seconds
-local sideSpeed = 160      -- how fast to move sideways
-local forwardBoost = 15    -- small forward velocity at midpoint
-local teleportOffset = 3  -- teleport distance at midpoint
+local moveDuration = 0.4
+local sideSpeed = 160
+local forwardBoost = 15
+local teleportOffset = 3
+
+-- ANIMATIONS
+local leftAnim = Instance.new("Animation")
+leftAnim.AnimationId = "rbxassetid://9443520855"
+
+local rightAnim = Instance.new("Animation")
+rightAnim.AnimationId = "rbxassetid://9443521999"
+
+local toggleDash = false
+local dashCoroutine
+local currentAnimTrack
 
 -- MOVEMENT FUNCTION
 local function dash(direction)
 	if not character or not humanoidRootPart then return end
+
+	-- Stop current animation if one is playing
+	if currentAnimTrack then
+		currentAnimTrack:Stop()
+	end
+
+	-- Play new animation
+	local animToPlay = direction == -1 and leftAnim or rightAnim
+	currentAnimTrack = humanoid:LoadAnimation(animToPlay)
+	currentAnimTrack:Play()
 
 	local moveStart = tick()
 	local connection
@@ -29,19 +51,42 @@ local function dash(direction)
 			return
 		end
 
-		-- Set sideways velocity
 		local moveVector = humanoidRootPart.CFrame.RightVector * direction * sideSpeed
 		humanoidRootPart.Velocity = Vector3.new(moveVector.X, humanoidRootPart.Velocity.Y, moveVector.Z)
 
-		-- Midpoint teleport
 		if not hasTeleported and elapsed >= moveDuration / 2 then
 			hasTeleported = true
-
-			-- Teleport 3 studs in direction + give small forward velocity
 			humanoidRootPart.CFrame = humanoidRootPart.CFrame + humanoidRootPart.CFrame.RightVector * direction * teleportOffset
 			humanoidRootPart.Velocity = humanoidRootPart.Velocity + humanoidRootPart.CFrame.LookVector * forwardBoost
 		end
 	end)
+end
+
+-- START DASH LOOP
+local function startTogglingDashes()
+	dashCoroutine = coroutine.create(function()
+		while toggleDash do
+			dash(-1)
+			task.wait(moveDuration)
+			if not toggleDash then break end
+
+			dash(1)
+			task.wait(moveDuration)
+		end
+	end)
+	coroutine.resume(dashCoroutine)
+end
+
+-- STOP DASH LOOP
+local function stopTogglingDashes()
+	toggleDash = false
+	if dashCoroutine and coroutine.status(dashCoroutine) == "suspended" then
+		coroutine.close(dashCoroutine)
+	end
+	if currentAnimTrack then
+		currentAnimTrack:Stop()
+		currentAnimTrack = nil
+	end
 end
 
 -- INPUT LISTENER
@@ -49,8 +94,15 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if gameProcessed then return end
 
 	if input.KeyCode == Enum.KeyCode.J then
-		dash(-1)  -- Left
+		dash(-1)
 	elseif input.KeyCode == Enum.KeyCode.L then
-		dash(1)   -- Right
+		dash(1)
+	elseif input.KeyCode == Enum.KeyCode.K then
+		toggleDash = not toggleDash
+		if toggleDash then
+			startTogglingDashes()
+		else
+			stopTogglingDashes()
+		end
 	end
 end)
