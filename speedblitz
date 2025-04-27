@@ -1,6 +1,9 @@
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Lighting = game:GetService("Lighting")
+local Debris = game:GetService("Debris")
 
 local player = Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
@@ -8,60 +11,99 @@ local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
 local humanoid = character:WaitForChild("Humanoid")
 
 -- CONFIG
-local moveDuration = 0.3       -- Total animation time
-local teleportOffset = 2       -- Distance teleported sideways
-local subtleSlideDistance = 0.3 -- Subtle pre/post slide effect
-local forwardBoost = 2         -- Tiny push forward
+local moveDuration = 0.5       -- Total sidestep time
+local teleportOffset = 8       -- Distance teleported sideways
+local subtleSlideDistance = 2 -- Pre/post slide tweak
+local forwardBoost = 10         -- Small push forward
 
--- ANIMATIONS
+-- ASSETS
+local dashEffect = ReplicatedStorage:WaitForChild("Utils"):WaitForChild("DashCancel"):WaitForChild("Wind")
+local dashSound = ReplicatedStorage:WaitForChild("Sounds"):WaitForChild("DashWhoosh")
+
 local leftAnim = Instance.new("Animation")
 leftAnim.AnimationId = "rbxassetid://9443520855"
 
 local rightAnim = Instance.new("Animation")
 rightAnim.AnimationId = "rbxassetid://9443521999"
 
+-- STATE
 local toggleDash = false
 local dashCoroutine
 local currentAnimTrack
 
--- MOVEMENT FUNCTION
+-- EFFECT HELPERS
+local function playDashEffect()
+	if not character or not humanoidRootPart then return end
+	local clone = dashEffect:Clone()
+	clone.CFrame = humanoidRootPart.CFrame
+	clone.Parent = workspace
+	Debris:AddItem(clone, 1)
+end
+
+local function playDashSound()
+	local soundClone = dashSound:Clone()
+	soundClone.Parent = humanoidRootPart
+	soundClone:Play()
+	Debris:AddItem(soundClone, 2)
+end
+
+local function flashMotionBlur()
+	local blur = Lighting:FindFirstChild("DashBlur")
+	if not blur then
+		blur = Instance.new("BlurEffect")
+		blur.Name = "DashBlur"
+		blur.Size = 0
+		blur.Parent = Lighting
+	end
+
+	blur.Size = 24
+	task.delay(0.1, function()
+		for i = 1, 12 do
+			blur.Size = blur.Size - 2
+			task.wait(0.01)
+		end
+		blur.Size = 0
+	end)
+end
+
+-- SIDESTEP FUNCTION
 local function dash(direction)
 	if not character or not humanoidRootPart then return end
 
-	-- Stop previous animation if playing
+	-- Stop current animation
 	if currentAnimTrack then
 		currentAnimTrack:Stop()
 	end
 
-	-- Play the right animation
+	-- Play animation
 	local animToPlay = direction == -1 and leftAnim or rightAnim
 	currentAnimTrack = humanoid:LoadAnimation(animToPlay)
 	currentAnimTrack:Play()
 
-	-- Optional: quick pre-slide to fake anticipation
-	local preSlide = humanoidRootPart.CFrame + humanoidRootPart.CFrame.RightVector * direction * subtleSlideDistance
-	humanoidRootPart.CFrame = preSlide
-
-	-- Wait a bit to match anticipation
+	-- Pre-slide
+	humanoidRootPart.CFrame += humanoidRootPart.CFrame.RightVector * direction * subtleSlideDistance
 	task.wait(moveDuration / 3)
 
-	-- Teleport sideways + slight forward nudge
+	-- Teleport + forward nudge
 	humanoidRootPart.CFrame += humanoidRootPart.CFrame.RightVector * direction * teleportOffset
 	humanoidRootPart.Velocity = humanoidRootPart.CFrame.LookVector * forwardBoost
 
-	-- Optional: post-slide for trailing effect
-	local postSlide = humanoidRootPart.CFrame + humanoidRootPart.CFrame.RightVector * direction * subtleSlideDistance
-	humanoidRootPart.CFrame = postSlide
+	-- Post-slide
+	humanoidRootPart.CFrame += humanoidRootPart.CFrame.RightVector * direction * subtleSlideDistance
+
+	-- Effects
+	playDashEffect()
+	playDashSound()
+	flashMotionBlur()
 end
 
--- TOGGLE DASH LOOP
+-- TOGGLE LOOP
 local function startTogglingDashes()
 	dashCoroutine = coroutine.create(function()
 		while toggleDash do
 			dash(-1)
 			task.wait(moveDuration)
 			if not toggleDash then break end
-
 			dash(1)
 			task.wait(moveDuration)
 		end
