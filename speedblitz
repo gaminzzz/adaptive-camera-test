@@ -8,8 +8,8 @@ local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
 
 -- CONFIG
 local moveDuration = 0.4  -- total time in seconds
-local sideSpeed = 40      -- how fast to move sideways
-local forwardBoost = 8    -- small forward velocity at midpoint
+local sideSpeed = 80      -- how fast to move sideways
+local forwardBoost = 15    -- small forward velocity at midpoint
 local teleportOffset = 3  -- teleport distance at midpoint
 
 -- MOVEMENT FUNCTION
