@@ -7,11 +7,11 @@ local character = player.Character or player.CharacterAdded:Wait()
 local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
 local humanoid = character:WaitForChild("Humanoid")
 
--- CONFIG (adjusted for less intense movement)
-local moveDuration = 0.3
-local sideSpeed = 50         -- Reduced from 160
-local forwardBoost = 5       -- Reduced from 15
-local teleportOffset = 1.5   -- Reduced from 3
+-- CONFIG
+local moveDuration = 0.3       -- Total animation time
+local teleportOffset = 2       -- Distance teleported sideways
+local subtleSlideDistance = 0.3 -- Subtle pre/post slide effect
+local forwardBoost = 2         -- Tiny push forward
 
 -- ANIMATIONS
 local leftAnim = Instance.new("Animation")
@@ -28,43 +28,33 @@ local currentAnimTrack
 local function dash(direction)
 	if not character or not humanoidRootPart then return end
 
-	-- Stop current animation if playing
+	-- Stop previous animation if playing
 	if currentAnimTrack then
 		currentAnimTrack:Stop()
 	end
 
-	-- Play correct animation
+	-- Play the right animation
 	local animToPlay = direction == -1 and leftAnim or rightAnim
 	currentAnimTrack = humanoid:LoadAnimation(animToPlay)
 	currentAnimTrack:Play()
 
-	local moveStart = tick()
-	local connection
-	local hasTeleported = false
+	-- Optional: quick pre-slide to fake anticipation
+	local preSlide = humanoidRootPart.CFrame + humanoidRootPart.CFrame.RightVector * direction * subtleSlideDistance
+	humanoidRootPart.CFrame = preSlide
 
-	connection = RunService.RenderStepped:Connect(function()
-		local now = tick()
-		local elapsed = now - moveStart
+	-- Wait a bit to match anticipation
+	task.wait(moveDuration / 3)
 
-		if elapsed >= moveDuration then
-			connection:Disconnect()
-			return
-		end
+	-- Teleport sideways + slight forward nudge
+	humanoidRootPart.CFrame += humanoidRootPart.CFrame.RightVector * direction * teleportOffset
+	humanoidRootPart.Velocity = humanoidRootPart.CFrame.LookVector * forwardBoost
 
-		-- Mild sideways velocity
-		local moveVector = humanoidRootPart.CFrame.RightVector * direction * sideSpeed
-		humanoidRootPart.Velocity = Vector3.new(moveVector.X, humanoidRootPart.Velocity.Y, moveVector.Z)
-
-		-- Smaller teleport at midpoint
-		if not hasTeleported and elapsed >= moveDuration / 2 then
-			hasTeleported = true
-			humanoidRootPart.CFrame += humanoidRootPart.CFrame.RightVector * direction * teleportOffset
-			humanoidRootPart.Velocity += humanoidRootPart.CFrame.LookVector * forwardBoost
-		end
-	end)
+	-- Optional: post-slide for trailing effect
+	local postSlide = humanoidRootPart.CFrame + humanoidRootPart.CFrame.RightVector * direction * subtleSlideDistance
+	humanoidRootPart.CFrame = postSlide
 end
 
--- TOGGLE LOGIC
+-- TOGGLE DASH LOOP
 local function startTogglingDashes()
 	dashCoroutine = coroutine.create(function()
 		while toggleDash do
