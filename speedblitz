@@ -9,7 +9,7 @@ local humanoid = character:WaitForChild("Humanoid")
 
 -- CONFIG
 local moveDuration = 0.4
-local sideSpeed = 160
+local sideSpeed = 25
 local forwardBoost = 15
 local teleportOffset = 3
 
