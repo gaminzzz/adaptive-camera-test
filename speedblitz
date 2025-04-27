@@ -1,0 +1,56 @@
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+
+-- CONFIG
+local moveDuration = 0.8  -- total time in seconds
+local sideSpeed = 25      -- how fast to move sideways
+local forwardBoost = 2    -- small forward velocity at midpoint
+local teleportOffset = 3  -- teleport distance at midpoint
+
+-- MOVEMENT FUNCTION
+local function dash(direction)
+	if not character or not humanoidRootPart then return end
+
+	local moveStart = tick()
+	local connection
+	local hasTeleported = false
+
+	connection = RunService.RenderStepped:Connect(function()
+		local now = tick()
+		local elapsed = now - moveStart
+
+		if elapsed >= moveDuration then
+			connection:Disconnect()
+			return
+		end
+
+		-- Set sideways velocity
+		local moveVector = humanoidRootPart.CFrame.RightVector * direction * sideSpeed
+		humanoidRootPart.Velocity = Vector3.new(moveVector.X, humanoidRootPart.Velocity.Y, moveVector.Z)
+
+		-- Midpoint teleport
+		if not hasTeleported and elapsed >= moveDuration / 2 then
+			hasTeleported = true
+
+			-- Teleport 3 studs in direction + give small forward velocity
+			humanoidRootPart.CFrame = humanoidRootPart.CFrame + humanoidRootPart.CFrame.RightVector * direction * teleportOffset
+			humanoidRootPart.Velocity = humanoidRootPart.Velocity + humanoidRootPart.CFrame.LookVector * forwardBoost
+		end
+	end)
+end
+
+-- INPUT LISTENER
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed then return end
+
+	if input.KeyCode == Enum.KeyCode.J then
+		dash(-1)  -- Left
+	elseif input.KeyCode == Enum.KeyCode.L then
+		dash(1)   -- Right
+	end
+end)
