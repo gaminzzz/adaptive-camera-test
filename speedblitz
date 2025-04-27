@@ -11,9 +11,9 @@ local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
 local humanoid = character:WaitForChild("Humanoid")
 
 -- CONFIG
-local moveDuration = 0.5       -- Total sidestep time
+local moveDuration = 0.8       -- Total sidestep time
 local teleportOffset = 8       -- Distance teleported sideways
-local subtleSlideDistance = 2 -- Pre/post slide tweak
+local subtleSlideDistance = 25 -- Pre/post slide tweak
 local forwardBoost = 10         -- Small push forward
 
 -- ASSETS
