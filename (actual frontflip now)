@@ -4,10 +4,10 @@ local player = Players.LocalPlayer
 
 local flipCooldown = false
 
--- Tweak force and speed to your liking
-local forwardBoost = 200
-local upwardBoost = 60
-local flipSpeed = 80
+-- Adjustable values
+local forwardBoost = 100
+local upwardBoost = 30
+local flipSpeed = 40 -- try negative if flip is backward
 
 local function doFrontFlip()
 	if flipCooldown then return end
@@ -16,20 +16,21 @@ local function doFrontFlip()
 	local character = player.Character or player.CharacterAdded:Wait()
 	local root = character:WaitForChild("HumanoidRootPart")
 
-	-- Apply forward + upward launch
+	-- Apply launch force
 	local bv = Instance.new("BodyVelocity")
 	bv.Velocity = root.CFrame.LookVector * forwardBoost + Vector3.new(0, upwardBoost, 0)
-	bv.MaxForce = Vector3.new(1e5, 1e5, 1e5)
-	bv.P = 1e4
+	bv.MaxForce = Vector3.new(1e6, 1e6, 1e6)
+	bv.P = 1e5
 	bv.Parent = root
 
-	-- Rotate around local X (RightVector) for frontflip
+	-- Apply spin (frontflip = rotate around X-axis)
 	local bav = Instance.new("BodyAngularVelocity")
-	bav.AngularVelocity = root.CFrame.RightVector * flipSpeed
-	bav.MaxTorque = Vector3.new(1e5, 1e5, 1e5)
-	bav.P = 1e4
+	bav.AngularVelocity = Vector3.new(flipSpeed, 0, 0) -- X = forward flip
+	bav.MaxTorque = Vector3.new(1e6, 1e6, 1e6)
+	bav.P = 1e5
 	bav.Parent = root
 
+	-- Remove after ~0.8s
 	task.delay(0.8, function()
 		bv:Destroy()
 		bav:Destroy()
@@ -37,10 +38,11 @@ local function doFrontFlip()
 	end)
 end
 
--- Activate with Z
+-- Trigger with Z
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if gameProcessed then return end
 	if input.KeyCode == Enum.KeyCode.Z then
 		doFrontFlip()
 	end
 end)
+
