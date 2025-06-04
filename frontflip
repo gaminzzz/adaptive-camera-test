@@ -2,12 +2,13 @@ local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local player = Players.LocalPlayer
 
+-- Cooldown to prevent spam
 local flipCooldown = false
 
--- Adjustable values
-local forwardBoost = 100
-local upwardBoost = 30
-local flipSpeed = 40 -- try negative if flip is backward
+-- Tweak these for strength/speed
+local forwardBoost = 200 -- how far forward to launch
+local upwardBoost = 60   -- how high to launch
+local flipSpeed = 80     -- how fast the character rotates
 
 local function doFrontFlip()
 	if flipCooldown then return end
@@ -16,16 +17,16 @@ local function doFrontFlip()
 	local character = player.Character or player.CharacterAdded:Wait()
 	local root = character:WaitForChild("HumanoidRootPart")
 
-	-- Apply launch force
+	-- Launch: Forward and upward
 	local bv = Instance.new("BodyVelocity")
 	bv.Velocity = root.CFrame.LookVector * forwardBoost + Vector3.new(0, upwardBoost, 0)
 	bv.MaxForce = Vector3.new(1e6, 1e6, 1e6)
 	bv.P = 1e5
 	bv.Parent = root
 
-	-- Apply spin (frontflip = rotate around X-axis)
+	-- Rotation: Frontflip (rotate around local X = RightVector)
 	local bav = Instance.new("BodyAngularVelocity")
-	bav.AngularVelocity = Vector3.new(flipSpeed, 0, 0) -- X = forward flip
+	bav.AngularVelocity = root.CFrame.RightVector * flipSpeed
 	bav.MaxTorque = Vector3.new(1e6, 1e6, 1e6)
 	bav.P = 1e5
 	bav.Parent = root
@@ -45,4 +46,3 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 		doFrontFlip()
 	end
 end)
-
