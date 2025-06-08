@@ -1,71 +1,75 @@
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local player = game.Players.LocalPlayer
+local camera = workspace.CurrentCamera
 
 -- Cooldown control
 local canActivate = true
 local cooldownTime = 0.5
+local movementActive = false
+local movementConnection
 
--- Main movement function
-local function teleportAndMove()
+-- CONFIG
+local sideDistance = 12
+local sideTeleportDelay = 0.05 -- Reduced delay
+local teleportRepeats = 3
+local forwardSpeed = 100
+
+-- Function to start constant forward movement (camera direction, no Y)
+local function startForwardMovement(hrp)
+    movementConnection = RunService.RenderStepped:Connect(function(dt)
+        if not movementActive then
+            movementConnection:Disconnect()
+            return
+        end
+
+        -- Camera look vector, flattened (no vertical movement)
+        local camLook = camera.CFrame.LookVector
+        local flatDir = Vector3.new(camLook.X, 0, camLook.Z).Unit
+
+        hrp.CFrame = hrp.CFrame + flatDir * forwardSpeed * dt
+    end)
+end
+
+-- Side teleport pattern (zigzag)
+local function teleportSideways(hrp)
+    local direction = 1
+    for i = 1, teleportRepeats do
+        local rightVector = hrp.CFrame.RightVector.Unit
+        local offset = rightVector * sideDistance * direction
+
+        hrp.CFrame = hrp.CFrame + offset
+        task.wait(sideTeleportDelay)
+
+        hrp.CFrame = hrp.CFrame - offset
+        task.wait(sideTeleportDelay)
+
+        direction = -direction
+    end
+end
+
+-- Main function
+local function activateMovement()
     local character = player.Character or player.CharacterAdded:Wait()
     local hrp = character:WaitForChild("HumanoidRootPart")
 
-    -- CONFIG
-    local sideDistance = 12
-    local forwardDistance = 30
-    local sideTeleportDelay = 0.15 -- Further reduced
-    local forwardSpeed = 100
-    local teleportRepeats = 3
+    if movementActive then return end
+    movementActive = true
 
-    -- Capture the facing direction AT START of movement
-    local forwardDirection = hrp.CFrame.LookVector.Unit
+    startForwardMovement(hrp)
 
-    -- Side teleport function
-    local function teleportSideways()
-        local direction = 1
-        for i = 1, teleportRepeats do
-            local rightVector = hrp.CFrame.RightVector.Unit
-            local offset = rightVector * sideDistance * direction
-
-            hrp.CFrame = hrp.CFrame + offset
-            task.wait(sideTeleportDelay)
-
-            -- Return to center
-            hrp.CFrame = hrp.CFrame - offset
-            task.wait(sideTeleportDelay)
-
-            direction = -direction
-        end
-    end
-
-    -- Forward movement function
-    local function moveForward()
-        local moved = 0
-        local connection
-        connection = RunService.RenderStepped:Connect(function(dt)
-            local step = forwardSpeed * dt
-            if moved + step >= forwardDistance then
-                step = forwardDistance - moved
-                connection:Disconnect()
-            end
-            hrp.CFrame = hrp.CFrame + forwardDirection * step
-            moved += step
-        end)
-    end
-
-    -- Execute both actions
-    task.spawn(moveForward)
-    task.wait(0.1)
-    teleportSideways()
+    task.spawn(function()
+        teleportSideways(hrp)
+        movementActive = false
+    end)
 end
 
--- Keybind setup with cooldown
+-- Input handling
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
     if input.KeyCode == Enum.KeyCode.Q and canActivate then
         canActivate = false
-        teleportAndMove()
+        activateMovement()
         task.delay(cooldownTime, function()
             canActivate = true
         end)
