@@ -15,30 +15,28 @@ local sideTeleportDelay = 0.05
 local teleportRepeats = 3
 local forwardSpeed = 100
 
--- Jump combo config
+-- Aerial variant config
 local verticalBoostHeight = 20
 local verticalBoostSpeed = 200
-local circleDuration = 0.6 -- seconds
+local circleDuration = 0.3 -- faster spin
 local circleRadius = 10
-local circleSpeed = 2 * math.pi / circleDuration -- full circle
-local dashDistance = 40
-local dashSpeed = 150
+local dashDistance = 80
+local dashSpeed = 250
 
--- Forward movement using camera direction (flat)
+-- Start forward movement (used by ground Q)
 local function startForwardMovement(hrp)
     movementConnection = RunService.RenderStepped:Connect(function(dt)
         if not movementActive then
             movementConnection:Disconnect()
             return
         end
-
         local camLook = camera.CFrame.LookVector
         local flatDir = Vector3.new(camLook.X, 0, camLook.Z).Unit
         hrp.CFrame = hrp.CFrame + flatDir * forwardSpeed * dt
     end)
 end
 
--- Zigzag teleport
+-- Zigzag teleport movement
 local function teleportSideways(hrp)
     local direction = 1
     for i = 1, teleportRepeats do
@@ -52,7 +50,7 @@ local function teleportSideways(hrp)
     end
 end
 
--- Launch upward by 20 studs
+-- Launch vertically
 local function verticalLaunch(hrp, onComplete)
     local moved = 0
     local connection
@@ -68,8 +66,8 @@ local function verticalLaunch(hrp, onComplete)
     end)
 end
 
--- Orbit in a fast circle (around original position)
-local function orbitInCircle(hrp, centerPos, onComplete)
+-- Flat horizontal circle around original position
+local function orbitInFlatCircle(hrp, centerPos, onComplete)
     local startTime = tick()
     local connection
     connection = RunService.RenderStepped:Connect(function()
@@ -80,17 +78,19 @@ local function orbitInCircle(hrp, centerPos, onComplete)
             return
         end
 
-        local angle = circleSpeed * elapsed
+        local angle = 2 * math.pi * (elapsed / circleDuration)
         local x = math.cos(angle) * circleRadius
         local z = math.sin(angle) * circleRadius
-        hrp.CFrame = CFrame.new(centerPos + Vector3.new(x, 0, z)) * CFrame.Angles(0, -angle, 0)
+
+        local offset = Vector3.new(x, 0, z)
+        hrp.CFrame = CFrame.new(centerPos + offset) * CFrame.lookAt(centerPos + offset, centerPos)
     end)
 end
 
--- Final dash forward (from current position)
-local function dashForward(hrp)
+-- Full 3D dash in camera's direction (follows up/down)
+local function dashForward3D(hrp)
     local moved = 0
-    local forwardDir = Vector3.new(camera.CFrame.LookVector.X, 0, camera.CFrame.LookVector.Z).Unit
+    local direction = camera.CFrame.LookVector.Unit
     local connection
     connection = RunService.RenderStepped:Connect(function(dt)
         local step = dashSpeed * dt
@@ -98,12 +98,12 @@ local function dashForward(hrp)
             step = dashDistance - moved
             connection:Disconnect()
         end
-        hrp.CFrame = hrp.CFrame + forwardDir * step
+        hrp.CFrame = hrp.CFrame + direction * step
         moved += step
     end)
 end
 
--- Main handler
+-- Main activation handler
 local function activateMovement(spaceHeld)
     local character = player.Character or player.CharacterAdded:Wait()
     local hrp = character:WaitForChild("HumanoidRootPart")
@@ -115,8 +115,9 @@ local function activateMovement(spaceHeld)
         local originalPos = hrp.Position
 
         verticalLaunch(hrp, function()
-            orbitInCircle(hrp, originalPos + Vector3.new(0, verticalBoostHeight, 0), function()
-                dashForward(hrp)
+            local circleCenter = hrp.Position
+            orbitInFlatCircle(hrp, circleCenter, function()
+                dashForward3D(hrp)
                 task.delay(0.3, function()
                     movementActive = false
                 end)
@@ -131,7 +132,7 @@ local function activateMovement(spaceHeld)
     end
 end
 
--- Input handling
+-- Input trigger
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
     if input.KeyCode == Enum.KeyCode.Q and canActivate then
