@@ -1,0 +1,145 @@
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local player = game.Players.LocalPlayer
+local camera = workspace.CurrentCamera
+
+-- Cooldown control
+local canActivate = true
+local cooldownTime = 0.5
+local movementActive = false
+local movementConnection
+
+-- CONFIG
+local sideDistance = 12
+local sideTeleportDelay = 0.05
+local teleportRepeats = 3
+local forwardSpeed = 100
+
+-- Jump combo config
+local verticalBoostHeight = 20
+local verticalBoostSpeed = 200
+local circleDuration = 0.6 -- seconds
+local circleRadius = 10
+local circleSpeed = 2 * math.pi / circleDuration -- full circle
+local dashDistance = 40
+local dashSpeed = 150
+
+-- Forward movement using camera direction (flat)
+local function startForwardMovement(hrp)
+    movementConnection = RunService.RenderStepped:Connect(function(dt)
+        if not movementActive then
+            movementConnection:Disconnect()
+            return
+        end
+
+        local camLook = camera.CFrame.LookVector
+        local flatDir = Vector3.new(camLook.X, 0, camLook.Z).Unit
+        hrp.CFrame = hrp.CFrame + flatDir * forwardSpeed * dt
+    end)
+end
+
+-- Zigzag teleport
+local function teleportSideways(hrp)
+    local direction = 1
+    for i = 1, teleportRepeats do
+        local rightVector = hrp.CFrame.RightVector.Unit
+        local offset = rightVector * sideDistance * direction
+        hrp.CFrame = hrp.CFrame + offset
+        task.wait(sideTeleportDelay)
+        hrp.CFrame = hrp.CFrame - offset
+        task.wait(sideTeleportDelay)
+        direction = -direction
+    end
+end
+
+-- Launch upward by 20 studs
+local function verticalLaunch(hrp, onComplete)
+    local moved = 0
+    local connection
+    connection = RunService.RenderStepped:Connect(function(dt)
+        local step = verticalBoostSpeed * dt
+        if moved + step >= verticalBoostHeight then
+            step = verticalBoostHeight - moved
+            connection:Disconnect()
+            if onComplete then onComplete() end
+        end
+        hrp.CFrame = hrp.CFrame + Vector3.new(0, step, 0)
+        moved += step
+    end)
+end
+
+-- Orbit in a fast circle (around original position)
+local function orbitInCircle(hrp, centerPos, onComplete)
+    local startTime = tick()
+    local connection
+    connection = RunService.RenderStepped:Connect(function()
+        local elapsed = tick() - startTime
+        if elapsed >= circleDuration then
+            connection:Disconnect()
+            if onComplete then onComplete() end
+            return
+        end
+
+        local angle = circleSpeed * elapsed
+        local x = math.cos(angle) * circleRadius
+        local z = math.sin(angle) * circleRadius
+        hrp.CFrame = CFrame.new(centerPos + Vector3.new(x, 0, z)) * CFrame.Angles(0, -angle, 0)
+    end)
+end
+
+-- Final dash forward (from current position)
+local function dashForward(hrp)
+    local moved = 0
+    local forwardDir = Vector3.new(camera.CFrame.LookVector.X, 0, camera.CFrame.LookVector.Z).Unit
+    local connection
+    connection = RunService.RenderStepped:Connect(function(dt)
+        local step = dashSpeed * dt
+        if moved + step >= dashDistance then
+            step = dashDistance - moved
+            connection:Disconnect()
+        end
+        hrp.CFrame = hrp.CFrame + forwardDir * step
+        moved += step
+    end)
+end
+
+-- Main handler
+local function activateMovement(spaceHeld)
+    local character = player.Character or player.CharacterAdded:Wait()
+    local hrp = character:WaitForChild("HumanoidRootPart")
+
+    if movementActive then return end
+    movementActive = true
+
+    if spaceHeld then
+        local originalPos = hrp.Position
+
+        verticalLaunch(hrp, function()
+            orbitInCircle(hrp, originalPos + Vector3.new(0, verticalBoostHeight, 0), function()
+                dashForward(hrp)
+                task.delay(0.3, function()
+                    movementActive = false
+                end)
+            end)
+        end)
+    else
+        startForwardMovement(hrp)
+        task.spawn(function()
+            teleportSideways(hrp)
+            movementActive = false
+        end)
+    end
+end
+
+-- Input handling
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.Q and canActivate then
+        canActivate = false
+        local spaceHeld = UserInputService:IsKeyDown(Enum.KeyCode.Space)
+        activateMovement(spaceHeld)
+        task.delay(cooldownTime, function()
+            canActivate = true
+        end)
+    end
+end)
