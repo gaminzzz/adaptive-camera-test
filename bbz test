@@ -6,6 +6,7 @@ local player = game.Players.LocalPlayer
 local canActivate = true
 local cooldownTime = 0.5
 
+-- Main movement function
 local function teleportAndMove()
     local character = player.Character or player.CharacterAdded:Wait()
     local hrp = character:WaitForChild("HumanoidRootPart")
@@ -13,23 +14,29 @@ local function teleportAndMove()
     -- CONFIG
     local sideDistance = 12
     local forwardDistance = 30
-    local sideTeleportDelay = 0.5
-    local forwardSpeed = 50
+    local sideTeleportDelay = 0.15 -- Further reduced
+    local forwardSpeed = 100
     local teleportRepeats = 3
+
+    -- Capture the facing direction AT START of movement
+    local forwardDirection = hrp.CFrame.LookVector.Unit
 
     -- Side teleport function
     local function teleportSideways()
         local direction = 1
-        for i = 1, teleportRepeats * 2 do
-            local offset = Vector3.new(sideDistance * direction, 0, 0)
+        for i = 1, teleportRepeats do
+            local rightVector = hrp.CFrame.RightVector.Unit
+            local offset = rightVector * sideDistance * direction
+
             hrp.CFrame = hrp.CFrame + offset
             task.wait(sideTeleportDelay)
+
+            -- Return to center
+            hrp.CFrame = hrp.CFrame - offset
+            task.wait(sideTeleportDelay)
+
             direction = -direction
         end
-
-        -- Return to middle
-        local finalOffset = Vector3.new(-sideDistance * direction, 0, 0)
-        hrp.CFrame = hrp.CFrame + finalOffset
     end
 
     -- Forward movement function
@@ -42,12 +49,12 @@ local function teleportAndMove()
                 step = forwardDistance - moved
                 connection:Disconnect()
             end
-            hrp.CFrame = hrp.CFrame + Vector3.new(0, 0, -step)
+            hrp.CFrame = hrp.CFrame + forwardDirection * step
             moved += step
         end)
     end
 
-    -- Run both actions
+    -- Execute both actions
     task.spawn(moveForward)
     task.wait(0.1)
     teleportSideways()
