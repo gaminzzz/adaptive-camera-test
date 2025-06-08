@@ -1,0 +1,66 @@
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local player = game.Players.LocalPlayer
+
+-- Cooldown control
+local canActivate = true
+local cooldownTime = 0.5
+
+local function teleportAndMove()
+    local character = player.Character or player.CharacterAdded:Wait()
+    local hrp = character:WaitForChild("HumanoidRootPart")
+
+    -- CONFIG
+    local sideDistance = 12
+    local forwardDistance = 30
+    local sideTeleportDelay = 0.5
+    local forwardSpeed = 50
+    local teleportRepeats = 3
+
+    -- Side teleport function
+    local function teleportSideways()
+        local direction = 1
+        for i = 1, teleportRepeats * 2 do
+            local offset = Vector3.new(sideDistance * direction, 0, 0)
+            hrp.CFrame = hrp.CFrame + offset
+            task.wait(sideTeleportDelay)
+            direction = -direction
+        end
+
+        -- Return to middle
+        local finalOffset = Vector3.new(-sideDistance * direction, 0, 0)
+        hrp.CFrame = hrp.CFrame + finalOffset
+    end
+
+    -- Forward movement function
+    local function moveForward()
+        local moved = 0
+        local connection
+        connection = RunService.RenderStepped:Connect(function(dt)
+            local step = forwardSpeed * dt
+            if moved + step >= forwardDistance then
+                step = forwardDistance - moved
+                connection:Disconnect()
+            end
+            hrp.CFrame = hrp.CFrame + Vector3.new(0, 0, -step)
+            moved += step
+        end)
+    end
+
+    -- Run both actions
+    task.spawn(moveForward)
+    task.wait(0.1)
+    teleportSideways()
+end
+
+-- Keybind setup with cooldown
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.Q and canActivate then
+        canActivate = false
+        teleportAndMove()
+        task.delay(cooldownTime, function()
+            canActivate = true
+        end)
+    end
+end)
