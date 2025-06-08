@@ -5,7 +5,7 @@ local camera = workspace.CurrentCamera
 
 -- Cooldown control
 local canActivate = true
-local cooldownTime = 0.5
+local cooldownTime = 0.4
 local movementActive = false
 local movementConnection
 
@@ -18,12 +18,12 @@ local forwardSpeed = 100
 -- Aerial variant config
 local verticalBoostHeight = 20
 local verticalBoostSpeed = 200
-local circleDuration = 0.3 -- faster spin
+local circleDuration = 0.3
 local circleRadius = 10
 local dashDistance = 80
 local dashSpeed = 250
 
--- Start forward movement (used by ground Q)
+-- Forward movement on ground (flat)
 local function startForwardMovement(hrp)
     movementConnection = RunService.RenderStepped:Connect(function(dt)
         if not movementActive then
@@ -36,7 +36,7 @@ local function startForwardMovement(hrp)
     end)
 end
 
--- Zigzag teleport movement
+-- Zigzag teleport
 local function teleportSideways(hrp)
     local direction = 1
     for i = 1, teleportRepeats do
@@ -50,7 +50,7 @@ local function teleportSideways(hrp)
     end
 end
 
--- Launch vertically
+-- Pure vertical launch (world-up)
 local function verticalLaunch(hrp, onComplete)
     local moved = 0
     local connection
@@ -66,7 +66,7 @@ local function verticalLaunch(hrp, onComplete)
     end)
 end
 
--- Flat horizontal circle around original position
+-- Orbit in a flat circle around fixed center (world horizontal)
 local function orbitInFlatCircle(hrp, centerPos, onComplete)
     local startTime = tick()
     local connection
@@ -81,13 +81,14 @@ local function orbitInFlatCircle(hrp, centerPos, onComplete)
         local angle = 2 * math.pi * (elapsed / circleDuration)
         local x = math.cos(angle) * circleRadius
         local z = math.sin(angle) * circleRadius
-
         local offset = Vector3.new(x, 0, z)
-        hrp.CFrame = CFrame.new(centerPos + offset) * CFrame.lookAt(centerPos + offset, centerPos)
+
+        local newPos = centerPos + offset
+        hrp.CFrame = CFrame.new(newPos, centerPos)
     end)
 end
 
--- Full 3D dash in camera's direction (follows up/down)
+-- Full 3D dash in camera look direction
 local function dashForward3D(hrp)
     local moved = 0
     local direction = camera.CFrame.LookVector.Unit
@@ -103,7 +104,7 @@ local function dashForward3D(hrp)
     end)
 end
 
--- Main activation handler
+-- Main ability handler
 local function activateMovement(spaceHeld)
     local character = player.Character or player.CharacterAdded:Wait()
     local hrp = character:WaitForChild("HumanoidRootPart")
@@ -132,7 +133,7 @@ local function activateMovement(spaceHeld)
     end
 end
 
--- Input trigger
+-- Input handling
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
     if input.KeyCode == Enum.KeyCode.Q and canActivate then
