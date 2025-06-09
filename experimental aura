@@ -1,3 +1,4 @@
+-- gave up, chatgpt saved me.
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
@@ -24,8 +25,8 @@ local function createAuraOnAllParts()
 			particle.Acceleration = Vector3.new(0, 15, 0)
 			particle.Speed = NumberRange.new(0, 6)
 			particle.Lifetime = NumberRange.new(0.5, 1)
-			particle.Rate = 10 -- 🔻 Reduced particle rate
-			particle.SpreadAngle = Vector2.new(180, 180) -- 🔁 Wider spread
+			particle.Rate = 5 -- 🔻 Lowered particle rate
+			particle.SpreadAngle = Vector2.new(180, 180)
 			particle.EmissionDirection = Enum.NormalId.Top
 			particle.Shape = Enum.ParticleEmitterShape.Box
 			particle.ShapeInOut = Enum.ParticleEmitterShapeInOut.Outward
@@ -33,23 +34,23 @@ local function createAuraOnAllParts()
 			particle.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
 			particle.FlipbookLayout = Enum.ParticleFlipbookLayout.Grid4x4
 			particle.FlipbookMode = Enum.ParticleFlipbookMode.OneShot
-			particle.Size = NumberSequence.new(1.5) -- 🔁 Bigger emission size
+			particle.Size = NumberSequence.new(1.5)
 			particle.Parent = part
 		end
 	end
 end
 
--- 🌌 Afterimage Trail
-local function createAfterimage(part)
+-- 🌌 Primary Afterimage (Light cyan, frequent)
+local function createAfterimage1(part)
 	local clone = Instance.new("Part")
-	clone.Size = part.Size * 1.05 -- Slightly bigger
+	clone.Size = part.Size * 1.05
 	clone.CFrame = part.CFrame
-	clone.Color = Color3.fromRGB(150, 255, 255) -- Pastel cyan
+	clone.Color = Color3.fromRGB(150, 255, 255) -- Light cyan
 	clone.Transparency = 0.7
 	clone.Material = Enum.Material.ForceField
 	clone.CanCollide = false
 	clone.Anchored = true
-	clone.Name = "Afterimage"
+	clone.Name = "Afterimage1"
 	clone.Shape = part.Shape == Enum.PartType.Ball and Enum.PartType.Ball or Enum.PartType.Block
 
 	local corner = Instance.new("UICorner")
@@ -59,8 +60,8 @@ local function createAfterimage(part)
 	clone.Parent = workspace
 
 	task.spawn(function()
-		local fadeTime = 0.25
-		local steps = 10
+		local fadeTime = 1.5
+		local steps = 30
 		for i = 1, steps do
 			clone.Transparency = 0.7 + (i / steps) * 0.3
 			task.wait(fadeTime / steps)
@@ -69,7 +70,37 @@ local function createAfterimage(part)
 	end)
 end
 
--- 🛡️ Mesh-Based Visual Barrier
+-- 🌌 Secondary Afterimage (Darker cyan, slower, more opaque)
+local function createAfterimage2(part)
+	local clone = Instance.new("Part")
+	clone.Size = part.Size * 1.05
+	clone.CFrame = part.CFrame
+	clone.Color = Color3.fromRGB(0, 170, 170) -- Darker cyan
+	clone.Transparency = 0.4 -- More opaque
+	clone.Material = Enum.Material.ForceField
+	clone.CanCollide = false
+	clone.Anchored = true
+	clone.Name = "Afterimage2"
+	clone.Shape = part.Shape == Enum.PartType.Ball and Enum.PartType.Ball or Enum.PartType.Block
+
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(1, 0)
+	corner.Parent = clone
+
+	clone.Parent = workspace
+
+	task.spawn(function()
+		local fadeTime = 2
+		local steps = 40
+		for i = 1, steps do
+			clone.Transparency = 0.4 + (i / steps) * 0.6
+			task.wait(fadeTime / steps)
+		end
+		clone:Destroy()
+	end)
+end
+
+-- 🛡️ Barrier Visuals (using real head mesh)
 local function attachBarrierToPart(part)
 	if part:FindFirstChild("BarrierVisual") then return end
 
@@ -91,29 +122,45 @@ local function attachBarrierToPart(part)
 	weld.Parent = visual
 
 	local mesh = Instance.new("SpecialMesh")
-	mesh.Scale = Vector3.new(1.05, 1.05, 1.05)
-
-	-- Match correct shape type
 	local nameLower = part.Name:lower()
-	if nameLower:find("arm") or nameLower:find("leg") then
+
+	if nameLower == "head" then
+		mesh.MeshType = Enum.MeshType.FileMesh
+		mesh.MeshId = "rbxassetid://134079402" -- 🧠 Real head mesh
+		mesh.Scale = Vector3.new(1.05, 1.05, 1.05)
+	elseif nameLower:find("arm") or nameLower:find("leg") then
 		mesh.MeshType = Enum.MeshType.Cylinder
-	elseif nameLower == "head" then
-		mesh.MeshType = Enum.MeshType.Head
+		mesh.Scale = Vector3.new(1.05, 1.05, 1.05)
 	else
 		mesh.MeshType = Enum.MeshType.Brick
+		mesh.Scale = Vector3.new(1.05, 1.05, 1.05)
 	end
 
 	mesh.Parent = visual
 end
 
--- 🔁 Constant afterimage loop
-local function startAfterimageTrail()
+-- 🔁 Start both Afterimage trails
+local function startAfterimageTrails()
+	-- Regular frequent trail
 	RunService.RenderStepped:Connect(function()
 		if not character or not character:IsDescendantOf(workspace) then return end
 		for _, part in pairs(character:GetChildren()) do
 			if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-				createAfterimage(part)
+				createAfterimage1(part)
 			end
+		end
+	end)
+
+	-- Slower, darker trail every 1s
+	task.spawn(function()
+		while true do
+			if not character or not character:IsDescendantOf(workspace) then return end
+			for _, part in pairs(character:GetChildren()) do
+				if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+					createAfterimage2(part)
+				end
+			end
+			task.wait(1)
 		end
 	end)
 end
@@ -127,4 +174,4 @@ for _, part in pairs(character:GetChildren()) do
 	end
 end
 
-startAfterimageTrail()
+startAfterimageTrails()
