@@ -75,8 +75,8 @@ local function createAfterimage2(part)
 	local clone = Instance.new("Part")
 	clone.Size = part.Size * 1.05
 	clone.CFrame = part.CFrame
-	clone.Color = Color3.fromRGB(0, 170, 170) -- Darker cyan
-	clone.Transparency = 0.2 -- More opaque
+	clone.Color = Color3.fromRGB(0, 100, 100) -- Darker cyan
+	clone.Transparency = 0.1 -- More opaque
 	clone.Material = Enum.Material.ForceField
 	clone.CanCollide = false
 	clone.Anchored = true
