@@ -71,14 +71,14 @@ local function createAuraOnAllParts()
 	end
 end
 
--- 🌌 Primary Afterimage (Light cyan, every 3s)
+-- 🌌 Primary Afterimage (Light cyan, frequent)
 local function createAfterimage1(part)
 	local clone = Instance.new("Part")
 	clone.Size = part.Size * 1.05
 	clone.CFrame = part.CFrame
 	clone.Color = Color3.fromRGB(150, 255, 255)
 	clone.Transparency = 0.7
-	clone.Material = Enum.Material.SmoothPlastic -- ✅ Fix for transparency
+	clone.Material = Enum.Material.SmoothPlastic -- ✅ changed here
 	clone.CanCollide = false
 	clone.Anchored = true
 	clone.Name = "Afterimage1"
@@ -101,14 +101,14 @@ local function createAfterimage1(part)
 	end)
 end
 
--- 🌌 Secondary Afterimage (Darker cyan, slower)
+-- 🌌 Secondary Afterimage (Darker cyan, slower, more opaque)
 local function createAfterimage2(part)
 	local clone = Instance.new("Part")
 	clone.Size = part.Size * 1.05
 	clone.CFrame = part.CFrame
-	clone.Color = Color3.fromRGB(0, 100, 100)
-	clone.Transparency = 0.5
-	clone.Material = Enum.Material.SmoothPlastic -- ✅ Also switched here
+	clone.Color = Color3.fromRGB(0, 170, 170)
+	clone.Transparency = 0.4
+	clone.Material = Enum.Material.SmoothPlastic -- ✅ changed here
 	clone.CanCollide = false
 	clone.Anchored = true
 	clone.Name = "Afterimage2"
@@ -131,22 +131,58 @@ local function createAfterimage2(part)
 	end)
 end
 
--- 🔁 Start both Afterimage trails
+-- 🛡️ Barrier Visuals
+local function attachBarrierToPart(part)
+	if part:FindFirstChild("BarrierVisual") then return end
+
+	local visual = Instance.new("Part")
+	visual.Name = "BarrierVisual"
+	visual.Anchored = false
+	visual.CanCollide = false
+	visual.Massless = true
+	visual.Transparency = 0.7
+	visual.Color = Color3.fromRGB(0, 255, 255)
+	visual.Material = Enum.Material.ForceField
+	visual.Size = part.Size * 1.05
+	visual.CFrame = part.CFrame
+	visual.Parent = part
+
+	local weld = Instance.new("WeldConstraint")
+	weld.Part0 = part
+	weld.Part1 = visual
+	weld.Parent = visual
+
+	local mesh = Instance.new("SpecialMesh")
+	local nameLower = part.Name:lower()
+
+	if nameLower == "head" then
+		mesh.MeshType = Enum.MeshType.FileMesh
+		mesh.MeshId = "rbxassetid://134079402"
+		mesh.Scale = Vector3.new(1.05, 1.05, 1.05)
+	elseif nameLower:find("arm") or nameLower:find("leg") then
+		mesh.MeshType = Enum.MeshType.Cylinder
+		mesh.Scale = Vector3.new(1.05, 1.05, 1.05)
+	else
+		mesh.MeshType = Enum.MeshType.Brick
+		mesh.Scale = Vector3.new(1.05, 1.05, 1.05)
+	end
+
+	mesh.Parent = visual
+end
+
+-- 🔁 Start Afterimage Trails
 local function startAfterimageTrails()
-	-- 🔄 Primary afterimages every 3 seconds
-	task.spawn(function()
-		while true do
-			if not character or not character:IsDescendantOf(workspace) then return end
-			for _, part in pairs(character:GetChildren()) do
-				if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-					createAfterimage1(part)
-				end
+	-- Frequent trail
+	RunService.RenderStepped:Connect(function()
+		if not character or not character:IsDescendantOf(workspace) then return end
+		for _, part in pairs(character:GetChildren()) do
+			if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+				createAfterimage1(part)
 			end
-			task.wait(3)
 		end
 	end)
 
-	-- 🔄 Secondary afterimages every 1 second
+	-- Delayed darker trail
 	task.spawn(function()
 		while true do
 			if not character or not character:IsDescendantOf(workspace) then return end
@@ -160,8 +196,13 @@ local function startAfterimageTrails()
 	end)
 end
 
--- ☑️ Initialize all effects
+-- ☑️ Initialize effects
 createAuraOnAllParts()
-startAfterimageTrails()
 
--- 🗑️ Removed attachBarrierToPart and calls to it
+for _, part in pairs(character:GetChildren()) do
+	if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+		attachBarrierToPart(part)
+	end
+end
+
+startAfterimageTrails()
