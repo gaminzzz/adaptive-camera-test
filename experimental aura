@@ -47,7 +47,7 @@ local function createAuraOnAllParts()
 			particle.Name = "AuraParticles"
 			particle.Texture = "rbxassetid://8733226116"
 			particle.Brightness = 15
-			particle.Color = ColorSequence.new(Color3.fromRGB(0, 255, 255)) -- Cyan
+			particle.Color = ColorSequence.new(Color3.fromRGB(0, 255, 255))
 			particle.Transparency = NumberSequence.new{
 				NumberSequenceKeypoint.new(0, 0),
 				NumberSequenceKeypoint.new(1, 0.8)
@@ -71,14 +71,14 @@ local function createAuraOnAllParts()
 	end
 end
 
--- 🌌 Primary Afterimage (Light cyan, frequent)
+-- 🌌 Primary Afterimage (delayed every 10 frames)
 local function createAfterimage1(part)
 	local clone = Instance.new("Part")
 	clone.Size = part.Size * 1.05
 	clone.CFrame = part.CFrame
 	clone.Color = Color3.fromRGB(150, 255, 255)
 	clone.Transparency = 0.7
-	clone.Material = Enum.Material.SmoothPlastic -- ✅ changed here
+	clone.Material = Enum.Material.SmoothPlastic
 	clone.CanCollide = false
 	clone.Anchored = true
 	clone.Name = "Afterimage1"
@@ -101,14 +101,14 @@ local function createAfterimage1(part)
 	end)
 end
 
--- 🌌 Secondary Afterimage (Darker cyan, slower, more opaque)
+-- 🌌 Secondary Afterimage (delayed every 120 frames)
 local function createAfterimage2(part)
 	local clone = Instance.new("Part")
 	clone.Size = part.Size * 1.05
 	clone.CFrame = part.CFrame
 	clone.Color = Color3.fromRGB(0, 170, 170)
 	clone.Transparency = 0.4
-	clone.Material = Enum.Material.SmoothPlastic -- ✅ changed here
+	clone.Material = Enum.Material.SmoothPlastic
 	clone.CanCollide = false
 	clone.Anchored = true
 	clone.Name = "Afterimage2"
@@ -172,31 +172,36 @@ end
 
 -- 🔁 Start Afterimage Trails
 local function startAfterimageTrails()
-	-- Frequent trail
+	local frameCount = 0
+	local lastAfterimage2Frame = 0
+
 	RunService.RenderStepped:Connect(function()
+		frameCount += 1
+
 		if not character or not character:IsDescendantOf(workspace) then return end
-		for _, part in pairs(character:GetChildren()) do
-			if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-				createAfterimage1(part)
+
+		-- 🌌 Primary Afterimage every 10 frames
+		if frameCount % 10 == 0 then
+			for _, part in pairs(character:GetChildren()) do
+				if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+					createAfterimage1(part)
+				end
 			end
 		end
-	end)
 
-	-- Delayed darker trail
-	task.spawn(function()
-		while true do
-			if not character or not character:IsDescendantOf(workspace) then return end
+		-- 🌌 Secondary Afterimage every 120 frames
+		if frameCount - lastAfterimage2Frame >= 120 then
+			lastAfterimage2Frame = frameCount
 			for _, part in pairs(character:GetChildren()) do
 				if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
 					createAfterimage2(part)
 				end
 			end
-			task.wait(1)
 		end
 	end)
 end
 
--- ☑️ Initialize effects
+-- ☑️ Initialize Effects
 createAuraOnAllParts()
 
 for _, part in pairs(character:GetChildren()) do
