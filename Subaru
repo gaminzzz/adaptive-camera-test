@@ -1,0 +1,56 @@
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
+local diedPosition = nil
+local isReviving = false
+
+-- Sound
+local reviveSound = Instance.new("Sound")
+reviveSound.SoundId = "rbxassetid://18597544476" 
+reviveSound.Volume = 1
+reviveSound.Parent = workspace
+
+-- Function to handle revive
+local function reviveCharacter()
+	if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return end
+
+	isReviving = true
+
+	-- Wait for a short moment to avoid core death actions
+	wait(0.1)
+
+	player.Character:MoveTo(diedPosition) -- Teleport back to death point
+	reviveSound:Play() -- Play revive sound
+	isReviving = false
+end
+
+-- Monitor the player's character
+local function onCharacterAdded(character)
+	local humanoid = character:WaitForChild("Humanoid")
+	local hrp = character:WaitForChild("HumanoidRootPart")
+
+	-- Update death position every frame
+	game:GetService("RunService").Heartbeat:Connect(function()
+		if not isReviving then
+			diedPosition = hrp.Position
+		end
+	end)
+
+	humanoid.Died:Connect(function()
+		-- Delay to allow character to respawn
+		humanoid:UnequipTools() -- Optional: remove tools
+		wait(0.2)
+
+		-- Wait for respawn
+		player.CharacterAdded:Wait()
+		player.Character:WaitForChild("HumanoidRootPart")
+
+		reviveCharacter()
+	end)
+end
+
+-- Connect to the player's character
+if player.Character then
+	onCharacterAdded(player.Character)
+end
+player.CharacterAdded:Connect(onCharacterAdded)
