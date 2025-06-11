@@ -3,13 +3,13 @@ local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
 local player = Players.LocalPlayer
-local diedPosition = nil
+local diedCFrame = nil
 local isReviving = false
 local heartbeatConnection = nil
 
 -- Setup revive sound
 local reviveSound = Instance.new("Sound")
-reviveSound.SoundId = "rbxassetid://18597544476" -- Your sound ID
+reviveSound.SoundId = "rbxassetid://18597544476"
 reviveSound.Volume = 1
 reviveSound.Name = "ReviveSound"
 reviveSound.Parent = workspace
@@ -19,62 +19,68 @@ local flashGui = Instance.new("ScreenGui")
 flashGui.Name = "ReviveFlashGui"
 flashGui.ResetOnSpawn = false
 flashGui.IgnoreGuiInset = true
+flashGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 flashGui.Parent = player:WaitForChild("PlayerGui")
 
 local flashImage = Instance.new("ImageLabel")
+flashImage.Name = "FlashImage"
 flashImage.BackgroundTransparency = 1
 flashImage.ImageTransparency = 1
 flashImage.Size = UDim2.new(1, 0, 1, 0)
 flashImage.Position = UDim2.new(0, 0, 0, 0)
-flashImage.Image = "rbxassetid://94406762340192" -- Your decal/image ID
+flashImage.Image = "rbxassetid://94406762340192"
 flashImage.ScaleType = Enum.ScaleType.Stretch
 flashImage.Parent = flashGui
 
 -- Function to play flash effect
 local function playFlash()
-	-- Fade in instantly
-	flashImage.ImageTransparency = 0
+	flashImage.ImageTransparency = 0 -- Fade in instantly
 
-	-- Tween to fade out over 2 seconds
-	local tween = TweenService:Create(flashImage, TweenInfo.new(2, Enum.EasingStyle.Linear), {ImageTransparency = 1})
+	-- Short delay helps ensure it's rendered
+	wait(0.05)
+
+	-- Fade out over 2 seconds
+	local tween = TweenService:Create(flashImage, TweenInfo.new(2, Enum.EasingStyle.Linear), {
+		ImageTransparency = 1
+	})
 	tween:Play()
 end
 
--- Function to revive the player at last known position
+-- Function to revive the player at last known CFrame
 local function reviveCharacter()
-	if not diedPosition or not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return end
+	if not diedCFrame or not player.Character then return end
+
 	isReviving = true
+	wait(0.1) -- Let core systems settle
 
-	wait(0.1) -- Let Roblox finish part of its own respawn process
+	local hrp = player.Character:WaitForChild("HumanoidRootPart")
+	hrp.CFrame = diedCFrame -- Restore position + orientation
 
-	player.Character:MoveTo(diedPosition) -- Teleport back
 	reviveSound:Play()
 	playFlash()
+
 	isReviving = false
 end
 
--- Track character changes
+-- Character handler
 local function onCharacterAdded(character)
 	local humanoid = character:WaitForChild("Humanoid")
-	local rootPart = character:WaitForChild("HumanoidRootPart")
+	local hrp = character:WaitForChild("HumanoidRootPart")
 
-	-- Disconnect old heartbeat connection if exists
+	-- Disconnect old heartbeat
 	if heartbeatConnection then
 		heartbeatConnection:Disconnect()
 	end
 
-	-- Update last known position every frame
+	-- Track position + orientation
 	heartbeatConnection = RunService.Heartbeat:Connect(function()
-		if rootPart and humanoid.Health > 0 and not isReviving then
-			diedPosition = rootPart.Position
+		if humanoid and humanoid.Health > 0 and not isReviving then
+			diedCFrame = hrp.CFrame
 		end
 	end)
 
-	-- Handle death
 	humanoid.Died:Connect(function()
-		wait(0.1) -- Slight delay to avoid timing issues
-
-		-- Wait for the character to respawn
+		wait(0.1)
 		local newChar = player.CharacterAdded:Wait()
 		newChar:WaitForChild("HumanoidRootPart")
 
