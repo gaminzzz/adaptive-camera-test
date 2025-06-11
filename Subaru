@@ -11,7 +11,6 @@ local heartbeatConnection = nil
 local reviveSound = Instance.new("Sound")
 reviveSound.SoundId = "rbxassetid://18597544476"
 reviveSound.Volume = 1
-reviveSound.Name = "ReviveSound"
 reviveSound.Parent = workspace
 
 -- Setup screen flash GUI
@@ -22,39 +21,40 @@ flashGui.IgnoreGuiInset = true
 flashGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 flashGui.Parent = player:WaitForChild("PlayerGui")
 
-local flashImage = Instance.new("ImageLabel")
-flashImage.Name = "FlashImage"
-flashImage.BackgroundTransparency = 1
-flashImage.ImageTransparency = 1
-flashImage.Size = UDim2.new(1, 0, 1, 0)
-flashImage.Position = UDim2.new(0, 0, 0, 0)
-flashImage.Image = "rbxassetid://94406762340192"
-flashImage.ScaleType = Enum.ScaleType.Stretch
-flashImage.Parent = flashGui
+-- Using a white frame for visibility testing
+local flashFrame = Instance.new("Frame")
+flashFrame.BackgroundColor3 = Color3.new(1, 1, 1)
+flashFrame.BackgroundTransparency = 1
+flashFrame.Size = UDim2.new(1, 0, 1, 0)
+flashFrame.Position = UDim2.new(0, 0, 0, 0)
+flashFrame.ZIndex = 10
+flashFrame.Parent = flashGui
 
--- Function to play flash effect
+-- Flash function
 local function playFlash()
-	flashImage.ImageTransparency = 0 -- Fade in instantly
-
-	-- Short delay helps ensure it's rendered
+	flashFrame.BackgroundTransparency = 0 -- Instant flash
 	wait(0.05)
 
-	-- Fade out over 2 seconds
-	local tween = TweenService:Create(flashImage, TweenInfo.new(2, Enum.EasingStyle.Linear), {
-		ImageTransparency = 1
+	local tween = TweenService:Create(flashFrame, TweenInfo.new(2, Enum.EasingStyle.Linear), {
+		BackgroundTransparency = 1
 	})
 	tween:Play()
 end
 
--- Function to revive the player at last known CFrame
+-- Revive function
 local function reviveCharacter()
 	if not diedCFrame or not player.Character then return end
-
 	isReviving = true
-	wait(0.1) -- Let core systems settle
+
+	wait(0.1)
 
 	local hrp = player.Character:WaitForChild("HumanoidRootPart")
-	hrp.CFrame = diedCFrame -- Restore position + orientation
+
+	-- Wait a moment to ensure state settles
+	RunService.RenderStepped:Wait()
+	RunService.RenderStepped:Wait()
+
+	hrp.CFrame = diedCFrame
 
 	reviveSound:Play()
 	playFlash()
@@ -62,17 +62,15 @@ local function reviveCharacter()
 	isReviving = false
 end
 
--- Character handler
+-- Character monitor
 local function onCharacterAdded(character)
 	local humanoid = character:WaitForChild("Humanoid")
 	local hrp = character:WaitForChild("HumanoidRootPart")
 
-	-- Disconnect old heartbeat
 	if heartbeatConnection then
 		heartbeatConnection:Disconnect()
 	end
 
-	-- Track position + orientation
 	heartbeatConnection = RunService.Heartbeat:Connect(function()
 		if humanoid and humanoid.Health > 0 and not isReviving then
 			diedCFrame = hrp.CFrame
@@ -83,12 +81,11 @@ local function onCharacterAdded(character)
 		wait(0.1)
 		local newChar = player.CharacterAdded:Wait()
 		newChar:WaitForChild("HumanoidRootPart")
-
 		reviveCharacter()
 	end)
 end
 
--- Initial setup
+-- Init
 if player.Character then
 	onCharacterAdded(player.Character)
 end
