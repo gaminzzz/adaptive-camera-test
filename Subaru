@@ -1,55 +1,60 @@
 local Players = game:GetService("Players")
-local player = Players.LocalPlayer
+local RunService = game:GetService("RunService")
 
+local player = Players.LocalPlayer
 local diedPosition = nil
 local isReviving = false
+local heartbeatConnection = nil
 
--- Sound
+-- Setup revive sound
 local reviveSound = Instance.new("Sound")
 reviveSound.SoundId = "rbxassetid://18597544476" 
 reviveSound.Volume = 1
+reviveSound.Name = "ReviveSound"
 reviveSound.Parent = workspace
 
--- Function to handle revive
+-- Function to revive the player at last known position
 local function reviveCharacter()
-	if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return end
-
+	if not diedPosition or not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return end
 	isReviving = true
 
-	-- Wait for a short moment to avoid core death actions
-	wait(0.1)
+	wait(0.1) -- Let Roblox finish part of its own respawn process
 
-	player.Character:MoveTo(diedPosition) -- Teleport back to death point
-	reviveSound:Play() -- Play revive sound
+	player.Character:MoveTo(diedPosition) -- Teleport back
+	reviveSound:Play()
 	isReviving = false
 end
 
--- Monitor the player's character
+-- Track character changes
 local function onCharacterAdded(character)
 	local humanoid = character:WaitForChild("Humanoid")
-	local hrp = character:WaitForChild("HumanoidRootPart")
+	local rootPart = character:WaitForChild("HumanoidRootPart")
 
-	-- Update death position every frame
-	game:GetService("RunService").Heartbeat:Connect(function()
-		if not isReviving then
-			diedPosition = hrp.Position
+	-- Disconnect old heartbeat connection if exists
+	if heartbeatConnection then
+		heartbeatConnection:Disconnect()
+	end
+
+	-- Update last known position every frame
+	heartbeatConnection = RunService.Heartbeat:Connect(function()
+		if rootPart and humanoid.Health > 0 and not isReviving then
+			diedPosition = rootPart.Position
 		end
 	end)
 
+	-- Handle death
 	humanoid.Died:Connect(function()
-		-- Delay to allow character to respawn
-		humanoid:UnequipTools() -- Optional: remove tools
-		wait(0.2)
+		wait(0.1) -- Slight delay to avoid timing issues
 
-		-- Wait for respawn
-		player.CharacterAdded:Wait()
-		player.Character:WaitForChild("HumanoidRootPart")
+		-- Wait for the character to respawn
+		local newChar = player.CharacterAdded:Wait()
+		newChar:WaitForChild("HumanoidRootPart")
 
 		reviveCharacter()
 	end)
 end
 
--- Connect to the player's character
+-- Initial setup
 if player.Character then
 	onCharacterAdded(player.Character)
 end
