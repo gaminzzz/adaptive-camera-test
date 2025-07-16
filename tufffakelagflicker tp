@@ -1,0 +1,88 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local hrp = character:WaitForChild("HumanoidRootPart")
+
+-- ========== GUI Setup ==========
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "FlickerGui"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+local textBox = Instance.new("TextBox")
+textBox.Name = "FlickerIntervalBox"
+textBox.Size = UDim2.new(0, 150, 0, 40)
+textBox.Position = UDim2.new(0, 10, 0, 10)
+textBox.Text = "1"
+textBox.PlaceholderText = "Flicker time (sec)"
+textBox.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+textBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+textBox.BorderSizePixel = 0
+textBox.ClearTextOnFocus = false
+textBox.Font = Enum.Font.SourceSans
+textBox.TextScaled = true
+textBox.Parent = screenGui
+
+-- ========== Flicker Logic ==========
+local flickerEnabled = false
+local flickerInterval = 1 -- default
+local timeSinceLastFlicker = 0
+local teleportToPast = true
+local positionHistory = {}
+local historyDuration = 2 -- seconds (how far back to flicker)
+
+-- Toggle on Z key
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if not gameProcessed and input.KeyCode == Enum.KeyCode.Z then
+		flickerEnabled = not flickerEnabled
+	end
+end)
+
+-- Update interval when user types in box
+textBox.FocusLost:Connect(function()
+	local newVal = tonumber(textBox.Text)
+	if newVal and newVal > 0 then
+		flickerInterval = newVal
+	else
+		textBox.Text = tostring(flickerInterval)
+	end
+end)
+
+-- ========== Main Loop ==========
+RunService.RenderStepped:Connect(function(dt)
+	-- Keep character updated in case of respawn
+	if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+		character = player.Character or player.CharacterAdded:Wait()
+		hrp = character:WaitForChild("HumanoidRootPart")
+		positionHistory = {}
+		return
+	end
+
+	-- Record current position
+	table.insert(positionHistory, 1, hrp.CFrame)
+	if #positionHistory > (60 * historyDuration) then
+		table.remove(positionHistory)
+	end
+
+	-- Flicker if enabled
+	if flickerEnabled then
+		timeSinceLastFlicker += dt
+		if timeSinceLastFlicker >= flickerInterval then
+			local historyIndex = math.floor(60 * historyDuration)
+			local oldCFrame = positionHistory[historyIndex]
+
+			if oldCFrame then
+				if teleportToPast then
+					hrp.CFrame = oldCFrame
+				else
+					hrp.CFrame = positionHistory[1] -- most recent
+				end
+				teleportToPast = not teleportToPast
+			end
+			timeSinceLastFlicker = 0
+		end
+	end
+end)
