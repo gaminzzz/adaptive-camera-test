@@ -27,33 +27,48 @@ textBox.TextScaled = true
 textBox.Parent = screenGui
 
 -- ========== Flicker Logic ==========
-local flickerEnabled = false
-local flickerInterval = 1 -- default
+local flickerInterval = 1 -- default interval
 local timeSinceLastFlicker = 0
 local teleportToPast = true
+
+local mode = "none" -- "past", "random", or "none"
+
 local positionHistory = {}
-local historyDuration = 2 -- seconds (how far back to flicker)
+local historyDuration = 2 -- seconds
+local originPosition = nil
 
--- Toggle on Z key
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-	if not gameProcessed and input.KeyCode == Enum.KeyCode.Z then
-		flickerEnabled = not flickerEnabled
-	end
-end)
-
--- Update interval when user types in box
+-- Handle textbox value change
 textBox.FocusLost:Connect(function()
-	local newVal = tonumber(textBox.Text)
-	if newVal and newVal > 0 then
-		flickerInterval = newVal
+	local val = tonumber(textBox.Text)
+	if val and val > 0 then
+		flickerInterval = val
 	else
 		textBox.Text = tostring(flickerInterval)
 	end
 end)
 
+-- Handle input toggles
+UserInputService.InputBegan:Connect(function(input, gp)
+	if gp then return end
+
+	if input.KeyCode == Enum.KeyCode.Z then
+		if mode == "past" then
+			mode = "none"
+		else
+			mode = "past"
+		end
+	elseif input.KeyCode == Enum.KeyCode.X then
+		if mode == "random" then
+			mode = "none"
+		else
+			mode = "random"
+			originPosition = hrp.Position
+		end
+	end
+end)
+
 -- ========== Main Loop ==========
 RunService.RenderStepped:Connect(function(dt)
-	-- Keep character updated in case of respawn
 	if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
 		character = player.Character or player.CharacterAdded:Wait()
 		hrp = character:WaitForChild("HumanoidRootPart")
@@ -61,28 +76,39 @@ RunService.RenderStepped:Connect(function(dt)
 		return
 	end
 
-	-- Record current position
+	-- Update origin if in random mode
+	if mode == "random" then
+		originPosition = originPosition + (hrp.Position - originPosition) * 0.05 -- smooth follow
+	end
+
+	-- Record position history
 	table.insert(positionHistory, 1, hrp.CFrame)
 	if #positionHistory > (60 * historyDuration) then
 		table.remove(positionHistory)
 	end
 
-	-- Flicker if enabled
-	if flickerEnabled then
+	-- Flicker logic
+	if mode ~= "none" then
 		timeSinceLastFlicker += dt
 		if timeSinceLastFlicker >= flickerInterval then
-			local historyIndex = math.floor(60 * historyDuration)
-			local oldCFrame = positionHistory[historyIndex]
-
-			if oldCFrame then
-				if teleportToPast then
-					hrp.CFrame = oldCFrame
-				else
-					hrp.CFrame = positionHistory[1] -- most recent
+			if mode == "past" then
+				local index = math.floor(60 * historyDuration)
+				local past = positionHistory[index]
+				if past then
+					hrp.CFrame = teleportToPast and past or positionHistory[1]
+					teleportToPast = not teleportToPast
 				end
-				teleportToPast = not teleportToPast
+			elseif mode == "random" and originPosition then
+				local radius = 5
+				local offset = Vector3.new(
+					math.random(-radius * 100, radius * 100) / 100,
+					0,
+					math.random(-radius * 100, radius * 100) / 100
+				)
+				hrp.CFrame = CFrame.new(originPosition + offset, hrp.Position + hrp.CFrame.LookVector)
 			end
 			timeSinceLastFlicker = 0
 		end
 	end
 end)
+
