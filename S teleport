@@ -1,0 +1,50 @@
+-- Place this in StarterPlayerScripts as a LocalScript
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+local humanoid = character:WaitForChild("Humanoid")
+
+local teleportKey = Enum.KeyCode.Q -- default key
+local teleportDistance = 10 -- default distance
+
+-- Track movement direction
+local moveDirection = Vector3.zero
+
+-- Update moveDirection continuously
+humanoid:GetPropertyChangedSignal("MoveDirection"):Connect(function()
+	moveDirection = humanoid.MoveDirection
+end)
+
+-- Listen for key presses to teleport
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed then return end
+	if input.KeyCode == teleportKey then
+		if moveDirection.Magnitude > 0 then
+			-- Normalize and scale
+			local teleportVector = moveDirection.Unit * teleportDistance
+			humanoidRootPart.CFrame = humanoidRootPart.CFrame + teleportVector
+		end
+	end
+end)
+
+-- Handle chat commands: /e [keybind] [distance]
+player.Chatted:Connect(function(msg)
+	-- Only process if it starts with /e
+	local args = string.split(msg, " ")
+	if args[1] == "/e" and args[2] and args[3] then
+		local keyName = string.upper(args[2])
+		local keyEnum = Enum.KeyCode[keyName]
+		local distance = tonumber(args[3])
+		
+		if keyEnum then
+			teleportKey = keyEnum
+		end
+		if distance then
+			teleportDistance = distance
+		end
+	end
+end)
