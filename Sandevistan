@@ -11,10 +11,10 @@ local player = Players.LocalPlayer
 local char = player.Character or player.CharacterAdded:Wait()
 local humanoid = char:WaitForChild("Humanoid")
 
--- Config
+-- Config (defaults, can be changed with /e command)
 local active = false
-local wsGain = 1      -- per 0.1s
-local wsCap = 300
+local wsGain = 5      -- WalkSpeed gain per 0.1s while moving
+local wsCap = 80      -- maximum WalkSpeed
 local afterimageTransparency = 0.2
 local maxAfterimages = 10
 local rainbowColors = {
@@ -35,9 +35,9 @@ tint.TintColor = Color3.fromRGB(0,255,0)
 tint.Enabled = false
 tint.Parent = Lighting
 
--- Position history
+-- Position history for trailing
 local history = {}
-local historyLength = 200 -- keep enough positions
+local historyLength = 200 -- how many frames to remember
 
 RunService.Heartbeat:Connect(function()
     if char and char.PrimaryPart then
@@ -75,13 +75,16 @@ end
 task.spawn(function()
     while true do
         task.wait(0.1)
-        if active and humanoid.MoveDirection.Magnitude > 0 then
-            if humanoid.WalkSpeed < wsCap then
-                humanoid.WalkSpeed = math.min(humanoid.WalkSpeed + wsGain, wsCap)
-            end
-            local anim = humanoid:FindFirstChildOfClass("Animator")
-            if anim then
-                anim:SetPlaybackSpeed(humanoid.WalkSpeed/16)
+        if active then
+            local moving = humanoid.MoveDirection.Magnitude > 0
+            if moving then
+                if humanoid.WalkSpeed < wsCap then
+                    humanoid.WalkSpeed = math.min(humanoid.WalkSpeed + wsGain, wsCap)
+                end
+                local anim = humanoid:FindFirstChildOfClass("Animator")
+                if anim then
+                    anim:SetPlaybackSpeed(humanoid.WalkSpeed/16)
+                end
             end
 
             local numAfterimages = math.clamp(math.floor((humanoid.WalkSpeed-16)/10),0,maxAfterimages)
@@ -89,7 +92,7 @@ task.spawn(function()
                 local baseColorIndex = math.random(1,#rainbowColors)
                 for i=1,numAfterimages do
                     local color = rainbowColors[(baseColorIndex+i-2)%#rainbowColors+1]
-                    local offset = i*5 -- spacing between afterimages (frames back)
+                    local offset = i*5 -- spacing in frames
                     cloneAfterimage(color, offset)
                 end
             end
@@ -97,7 +100,7 @@ task.spawn(function()
     end
 end)
 
--- Toggle
+-- Toggle with backtick
 UIS.InputBegan:Connect(function(input, gpe)
     if gpe then return end
     if input.KeyCode == Enum.KeyCode.Backquote then
